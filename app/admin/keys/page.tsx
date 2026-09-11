@@ -19,6 +19,7 @@ export default async function AdminKeysPage({ searchParams }: PageProps<"/admin/
       </div>
       {typeof sp.ok === "string" && <Alert kind="success">{sp.ok}</Alert>}
       {typeof sp.error === "string" && <Alert kind="error">{sp.error}</Alert>}
+      {!process.env.SUPABASE_SERVICE_ROLE_KEY && <Alert kind="error">서버에 SUPABASE_SERVICE_ROLE_KEY가 없어 키를 암호화할 수 없습니다. Vercel 환경변수를 확인하세요.</Alert>}
       <Alert kind="warn">키는 강사(관리자)만 볼 수 있는 이 화면에서만 다루세요. 대화·메일·문서에 키를 붙여 넣지 마세요.</Alert>
 
       {groups.map((g) => (
