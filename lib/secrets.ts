@@ -110,7 +110,6 @@ export async function listSecretStatus(): Promise<SecretStatus[]> {
 /** 실습 제작실에 필요한 키 중 빠진 것 */
 export async function missingPracticeKeys(): Promise<SecretName[]> {
   const need: SecretName[] = ["OPENAI_API_KEY", "ANTHROPIC_API_KEY", "FAL_KEY"];
-  const out: SecretName[] = [];
-  for (const n of need) if (!(await getSecret(n))) out.push(n);
-  return out;
+  const values = await Promise.all(need.map((n) => getSecret(n))); // 순차 → 병렬 (왕복 3회 → 1회)
+  return need.filter((_, i) => !values[i]);
 }
