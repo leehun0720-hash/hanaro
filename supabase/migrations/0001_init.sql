@@ -224,4 +224,7 @@ create policy "storage own folder" on storage.objects for all
   with check (bucket_id in ('uploads','outputs') and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ---------- 최초 관리자 지정 (이메일 수정 후 실행) ----------
+-- SQL Editor에서는 보호 트리거를 잠깐 꺼야 한다:
+-- alter table profiles disable trigger profiles_protect;
 -- update profiles set role = 'admin' where email = 'admin@example.com';
+-- alter table profiles enable trigger profiles_protect;

@@ -58,8 +58,13 @@ npm run build
 4. 가입 후 최초 관리자 지정:
 
 ```sql
+-- SQL Editor는 서비스 롤 검사를 통과하지 못하므로 보호 트리거를 잠깐 끄고 바꾼다
+alter table profiles disable trigger profiles_protect;
 update profiles set role = 'admin' where email = '관리자이메일@example.com';
+alter table profiles enable trigger profiles_protect;
 ```
+
+이후 관리자는 `/admin`(회원·구독)에서 역할 선택으로 지정할 수 있습니다.
 
 관리자는 `/admin`에서 회원·구독 상태 변경, 크레딧 조정, 요금·단가 설정, 작업 로그, 갤러리 공개를 관리합니다.
 결제 연동 전에 테스트하려면 관리자 화면에서 회원의 구독을 "활성"으로 바꾸고 크레딧을 부여하면 됩니다.
