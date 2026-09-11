@@ -66,13 +66,14 @@ export async function concatClips(clips: string[], output: string, dir: string) 
 }
 
 /** 자막 번인 + (선택) 오디오 합성 + 끝 페이드아웃 → 최종 mp4 */
-export async function finalize(video: string, output: string, opts: { cues: Cue[]; size: Size; audio?: string; totalSeconds: number; fadeOut?: boolean }) {
+export async function finalize(video: string, output: string, opts: { cues: Cue[]; size: Size; audio?: string; totalSeconds: number; fadeOut?: boolean; loopAudio?: boolean }) {
   const filters: string[] = [];
   const sub = subtitleFilter(opts.cues, opts.size.h);
   if (sub) filters.push(sub);
   if (opts.fadeOut) filters.push(`fade=t=out:st=${Math.max(0, opts.totalSeconds - 1).toFixed(2)}:d=1`);
   const args = ["-i", video];
-  if (opts.audio) args.push("-i", opts.audio);
+  // loopAudio: 음원이 영상보다 짧으면 반복 (업로드 BGM용). -t 로 총 길이를 자른다
+  if (opts.audio) args.push(...(opts.loopAudio ? ["-stream_loop", "-1"] : []), "-i", opts.audio);
   if (filters.length) args.push("-vf", filters.join(","));
   args.push("-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
   if (opts.audio) args.push("-map", "0:v:0", "-map", "1:a:0", "-c:a", "aac", "-b:a", "192k", "-shortest", "-af", `afade=t=out:st=${Math.max(0, opts.totalSeconds - 2).toFixed(2)}:d=2`);

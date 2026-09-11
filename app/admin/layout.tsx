@@ -10,6 +10,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/jobs", label: "작업 로그" },
     { href: "/admin/gallery", label: "갤러리 공개" },
     { href: "/admin/settings", label: "요금·ro 설정" },
+    { href: "/admin/practice", label: "실습 현황" },
+    { href: "/admin/keys", label: "API 키" },
   ];
   return (
     <div className="min-h-screen">

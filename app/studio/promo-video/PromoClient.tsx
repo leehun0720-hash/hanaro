@@ -7,7 +7,7 @@ import type { Project } from "@/lib/types";
 
 const STEPS = {
   plan: "Claude가 3컷 설계도를 그리는 중",
-  video: "Seedance가 컷을 촬영하는 중 (3~6분)",
+  video: "Kling이 컷을 촬영하는 중 (2~6분)",
   poster: "행동 유도(CTA) 포스터를 그리는 중",
   compose: "컷을 잇고 자막을 입히는 중 (ffmpeg)",
 };

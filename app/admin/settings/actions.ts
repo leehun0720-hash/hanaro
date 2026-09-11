@@ -14,6 +14,7 @@ const schema = z.object({
   cardnews_page: z.coerce.number().int().min(0),
   promo_video: z.coerce.number().int().min(0),
   music_video: z.coerce.number().int().min(0),
+  practice: z.coerce.number().int().min(0).default(40),
 });
 
 export async function savePlanSettings(formData: FormData) {

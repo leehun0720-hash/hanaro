@@ -11,6 +11,7 @@ export const DEFAULT_COSTS: Record<string, number> = {
   cardnews_page: 5,
   promo_video: 55,
   music_video: 110,
+  practice: 40,
 };
 
 export const COST_LABEL: Record<string, string> = {
@@ -19,14 +20,16 @@ export const COST_LABEL: Record<string, string> = {
   cardnews_page: "카드뉴스 1장",
   promo_video: "홍보영상 30초",
   music_video: "뮤직비디오 1분",
+  practice: "실습 제작실 1회 (사진→영상)",
 };
 
 export const COST_DETAIL: Record<string, string> = {
   document: "Claude 초안 + 한글(HWPX) 조립",
   newsletter: "Claude 5섹션 원고 + GPT Image 카톡 이미지 1장",
   cardnews_page: "문구 설계 + GPT Image 1장",
-  promo_video: "3컷 설계 + Seedance 25초 + CTA 포스터 + 자막 합성",
-  music_video: "가사·장면 설계 + ElevenLabs 1분 + Seedance 60초 + 합성",
+  promo_video: "3컷 설계 + Kling 3.0 클립 25초 + CTA 포스터 + 자막 합성",
+  music_video: "가사·장면 설계 + ElevenLabs 1분 + Kling 3.0 60초 + 합성",
+  practice: "GPT 이미지 편집(하드캡 3회) + Claude 프롬프트 + Kling 3.0 한국어 음성 영상(하드캡 2회) + 브라우저 자막",
 };
 
 /** 작업 종류·옵션에 따른 ro 소모량 (순수 함수) */

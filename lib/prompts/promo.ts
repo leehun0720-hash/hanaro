@@ -20,7 +20,7 @@ export const PROMO_CUTS = [
 
 export const promoOutputSchema = z.object({
   cuts: z.object({
-    hook: z.object({ caption: z.string().describe("첫 3초 자막, 손가락을 멈추게 하는 한 문장 20자 이내"), videoPrompt: z.string().describe("영문 Seedance 프롬프트: 카메라+피사체+배경·시간+분위기, 60단어 이내, 사람 얼굴 클로즈업 금지") }),
+    hook: z.object({ caption: z.string().describe("첫 3초 자막, 손가락을 멈추게 하는 한 문장 20자 이내"), videoPrompt: z.string().describe("영문 Kling 프롬프트: 카메라+피사체+배경·시간+분위기, 60단어 이내, 사람 얼굴 클로즈업 금지") }),
     messageA: z.object({ caption: z.string().describe("자막 20자 이내: 무엇을"), videoPrompt: z.string() }),
     messageB: z.object({ caption: z.string().describe("자막 20자 이내: 언제·어디서·혜택"), videoPrompt: z.string() }),
     cta: z.object({ caption: z.string().describe("자막: 기한 + 연락처, 예 '9월 20일까지 ☎ 031-000-0000'") }),

@@ -18,7 +18,7 @@ export default async function MusicVideoPage({ searchParams }: PageProps<"/studi
     <div className="mx-auto max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold">뮤직비디오 1분 — 우리 조합 응원송</h1>
-        <p className="mt-1 text-sm text-muted">Claude가 가사(1절·후렴·2절·후렴)를 쓰고, ElevenLabs가 작곡·노래하고, Seedance가 장면 4개를 촬영합니다. 후렴 자막과 조합명 카드로 마무리.</p>
+        <p className="mt-1 text-sm text-muted">Claude가 가사(1절·후렴·2절·후렴)를 쓰고, ElevenLabs가 작곡·노래하고, Kling 3.0이 장면 4개를 촬영합니다. 후렴 자막과 조합명 카드로 마무리.</p>
       </div>
       <MvClient projects={projects} preselect={preselect} orgName={profile.org_name} credits={costFor("music_video", costs)} />
     </div>

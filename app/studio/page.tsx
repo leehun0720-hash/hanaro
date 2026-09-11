@@ -12,6 +12,7 @@ const rooms = [
   { href: "/studio/cardnews", title: "카드뉴스", desc: "장별 문구·이미지 3~6장", day: "Day 1" },
   { href: "/studio/promo-video", title: "홍보영상 30초", desc: "후크·메시지·CTA 3컷, 자막 포함", day: "Day 2 오후" },
   { href: "/studio/music-video", title: "뮤직비디오 1분", desc: "가사 → 응원송 → 장면 4개", day: "Day 2 저녁" },
+  { href: "/studio/practice", title: "실습 · 내 사진 영상", desc: "사진 편집 → 한국어 대사 → Kling 3.0 음성 영상 → 브라우저 자막 → 다운로드", day: "실습" },
 ];
 
 export default async function StudioHome({ searchParams }: PageProps<"/studio">) {

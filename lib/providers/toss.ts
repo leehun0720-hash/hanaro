@@ -3,9 +3,11 @@
  * - 카드 정보는 토스 결제창에서만 입력되며, 이 서버는 authKey → billingKey 발급과 청구만 담당한다.
  * - 문서: https://docs.tosspayments.com/guides/v2/billing
  */
+import { requireSecret } from "@/lib/secrets";
+
 const BASE = "https://api.tosspayments.com/v1";
 
-const authHeader = () => "Basic " + Buffer.from(`${process.env.TOSS_SECRET_KEY}:`).toString("base64");
+const authHeader = async () => "Basic " + Buffer.from(`${await requireSecret("TOSS_SECRET_KEY")}:`).toString("base64");
 
 export type TossCard = { company?: string; issuerCode?: string; number?: string; cardType?: string };
 export type BillingKeyResult = { billingKey: string; customerKey: string; card?: TossCard; method?: string };
@@ -30,7 +32,7 @@ class TossError extends Error {
 async function post<T>(path: string, body: unknown): Promise<T> {
   const r = await fetch(`${BASE}${path}`, {
     method: "POST",
-    headers: { Authorization: authHeader(), "Content-Type": "application/json" },
+    headers: { Authorization: await authHeader(), "Content-Type": "application/json" },
     body: JSON.stringify(body),
     cache: "no-store",
   });

@@ -8,6 +8,7 @@ export type Profile = {
   role: Role;
   credits: number; // 월 지급분(구독)
   banana_purchased: number; // 충전분(무기한)
+  consent_at: string | null; // 실습: 사진 업로드·AI 처리·삭제 동의 시각
   created_at: string;
 };
 
@@ -72,8 +73,9 @@ export type Project = {
   created_at: string;
 };
 
-export type JobType = "document" | "newsletter" | "cardnews" | "promo_video" | "music_video";
-export type JobStatus = "queued" | "running" | "succeeded" | "failed";
+export type JobType = "document" | "newsletter" | "cardnews" | "promo_video" | "music_video" | "practice";
+/** waiting: 사용자 확인(사진 승인·프롬프트 수정·자막 편집)을 기다리는 중 */
+export type JobStatus = "queued" | "running" | "waiting" | "succeeded" | "failed";
 
 export type Job = {
   id: string;
@@ -88,6 +90,8 @@ export type Job = {
   credits: number;
   provider_task_ids: Record<string, string>;
   lock_until: string | null;
+  cost_usd: number; // 외부 API 추정 비용(USD), 관리자 표시용
+  queue_position: number | null;
   created_at: string;
   updated_at: string;
   finished_at: string | null;
@@ -105,6 +109,7 @@ export type Asset = {
   size: number | null;
   meta: Record<string, unknown>;
   is_public: boolean;
+  delete_after: string | null; // 실습 자산 삭제 예정일
   created_at: string;
 };
 
@@ -114,11 +119,13 @@ export const JOB_TYPE_LABEL: Record<JobType, string> = {
   cardnews: "카드뉴스",
   promo_video: "홍보영상",
   music_video: "뮤직비디오",
+  practice: "실습(사진→영상)",
 };
 
 export const JOB_STATUS_LABEL: Record<JobStatus, string> = {
   queued: "대기",
   running: "생성 중",
+  waiting: "확인 대기",
   succeeded: "완료",
   failed: "실패",
 };

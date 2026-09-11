@@ -36,7 +36,7 @@ export const mvOutputSchema = z.object({
     .array(
       z.object({
         captionKo: z.string().describe("이 장면에 띄울 가사 한 줄(위 가사에서 발췌)"),
-        videoPrompt: z.string().describe("영문 Seedance 프롬프트 60단어 이내, 밝은 실사풍 한국 농촌, 얼굴 클로즈업·로고·글자 금지"),
+        videoPrompt: z.string().describe("영문 Kling 프롬프트 60단어 이내, 밝은 실사풍 한국 농촌, 얼굴 클로즈업·로고·글자 금지"),
       }),
     )
     .describe("정확히 4개, 각 15초"),

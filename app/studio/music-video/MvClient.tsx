@@ -7,7 +7,7 @@ import type { Project } from "@/lib/types";
 const STEPS = {
   plan: "Claude가 가사와 장면 4개를 쓰는 중",
   music: "ElevenLabs가 응원송을 작곡·녹음하는 중 (1~2분)",
-  video: "Seedance가 장면 4개를 촬영하는 중 (4~8분)",
+  video: "Kling이 장면 4개를 촬영하는 중 (3~8분)",
   compose: "장면을 잇고 음원·자막을 입히는 중 (ffmpeg)",
 };
 

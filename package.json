@@ -8,10 +8,18 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "smoke:ffmpeg": "tsx scripts/smoke-ffmpeg.ts"
+    "smoke:ffmpeg": "tsx scripts/smoke-ffmpeg.ts",
+    "ffmpeg:assets": "node scripts/copy-ffmpeg-assets.mjs",
+    "postinstall": "node scripts/copy-ffmpeg-assets.mjs",
+    "predev": "node scripts/copy-ffmpeg-assets.mjs",
+    "prebuild": "node scripts/copy-ffmpeg-assets.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
+    "@fal-ai/client": "^1.10.1",
+    "@ffmpeg/core": "^0.12.10",
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.116.0",
     "@tosspayments/tosspayments-sdk": "^2.8.1",

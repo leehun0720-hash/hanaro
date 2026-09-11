@@ -43,3 +43,8 @@ out/
 .playwright-mcp/
 landing-full.png
 pricing-full.png
+
+# ffmpeg.wasm·폰트 자산은 postinstall이 node_modules/assets에서 복사
+public/ffmpeg/
+public/fonts/
+public/dev/

@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // postinstall이 복사한 ffmpeg.wasm 자산 (서드파티 번들)
+    "public/**",
   ]),
 ]);
 

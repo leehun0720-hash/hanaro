@@ -28,7 +28,7 @@ export const promoVideoPipeline: Pipeline = {
 
     if (step === "video:start") {
       const refs = input.usePhotos ? await referenceUrls(ctx, 1) : [];
-      await startClips(
+      const started = await startClips(
         ctx,
         [
           { key: "hook", prompt: plan.cuts.hook.videoPrompt, seconds: 5 },
@@ -38,7 +38,7 @@ export const promoVideoPipeline: Pipeline = {
         input.ratio,
         refs,
       );
-      return { next: "video:wait" };
+      return { next: started ? "video:wait" : "video:start" };
     }
 
     if (step === "video:wait") {

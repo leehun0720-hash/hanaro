@@ -5,6 +5,7 @@ import { newsletterPipeline } from "./newsletter";
 import { cardnewsPipeline } from "./cardnews";
 import { promoVideoPipeline } from "./promo_video";
 import { musicVideoPipeline } from "./music_video";
+import { practicePipeline } from "./practice";
 
 const registry: Record<JobType, Pipeline> = {
   document: documentPipeline,
@@ -12,6 +13,7 @@ const registry: Record<JobType, Pipeline> = {
   cardnews: cardnewsPipeline,
   promo_video: promoVideoPipeline,
   music_video: musicVideoPipeline,
+  practice: practicePipeline,
 };
 
 export function getPipeline(type: JobType): Pipeline {

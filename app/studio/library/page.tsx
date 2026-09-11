@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { JOB_STATUS_LABEL, JOB_TYPE_LABEL, type Asset, type Job } from "@/lib/types";
@@ -37,6 +38,9 @@ export default async function LibraryPage() {
                 <span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-[#7a5d00]"}`}>{JOB_STATUS_LABEL[j.status]}</span>
               </div>
               {j.error && <p className="mt-2 text-sm text-danger">{j.error}</p>}
+              {j.type === "practice" && (j.status === "waiting" || j.status === "running" || j.status === "queued") && (
+                <Link href={`/studio/practice?job=${j.id}`} className="btn-primary mt-3 text-xs">{j.status === "waiting" ? "이어서 하기 →" : "진행 상황 보기 →"}</Link>
+              )}
               {j.assets?.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {j.assets.map((a) => (

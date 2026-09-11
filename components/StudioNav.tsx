@@ -10,6 +10,7 @@ const items = [
   { href: "/studio/cardnews", label: "카드뉴스", icon: "▣" },
   { href: "/studio/promo-video", label: "홍보영상 30초", icon: "▶" },
   { href: "/studio/music-video", label: "뮤직비디오 1분", icon: "♪" },
+  { href: "/studio/practice", label: "실습 · 내 사진 영상", icon: "✦" },
   { href: "/studio/library", label: "보관함", icon: "◫" },
   { href: "/studio/billing", label: "구독 · 결제", icon: "▥" },
 ];

@@ -11,14 +11,14 @@ const rooms = [
   { n: "01", title: "문서 · HWP", tool: "Claude → 한글(HWPX)", desc: "기획서·공문·보고서·보도자료. 읽기는 AI가, 쓰기는 규격대로, 확인은 사람이.", href: "/studio/document", credit: "3" },
   { n: "02", title: "뉴스레터", tool: "Claude → GPT Image", desc: "5섹션 황금 구조 원고와 카톡 전송용 이미지 1장. 열지 않아도 읽힙니다.", href: "/studio/newsletter", credit: "8" },
   { n: "03", title: "카드뉴스", tool: "Claude → GPT Image", desc: "첫 장은 후크, 마지막 장은 행동 유도. 스타일 사전 5종, 3~6장.", href: "/studio/cardnews", credit: "장당 5" },
-  { n: "04", title: "홍보영상 30초", tool: "Claude → Seedance → 자막", desc: "후크 3초 · 메시지 20초 · CTA 7초. 무음으로 봐도 이해되는 3컷.", href: "/studio/promo-video", credit: "55" },
-  { n: "05", title: "뮤직비디오 1분", tool: "Claude → ElevenLabs → Seedance", desc: "우리 조합 응원송. 가사 → 작곡 → 장면 4개 → 후렴 자막.", href: "/studio/music-video", credit: "110" },
+  { n: "04", title: "홍보영상 30초", tool: "Claude → Kling → 자막", desc: "후크 3초 · 메시지 20초 · CTA 7초. 무음으로 봐도 이해되는 3컷.", href: "/studio/promo-video", credit: "55" },
+  { n: "05", title: "뮤직비디오 1분", tool: "Claude → ElevenLabs → Kling", desc: "우리 조합 응원송. 가사 → 작곡 → 장면 4개 → 후렴 자막.", href: "/studio/music-video", credit: "110" },
 ];
 
 const steps = [
   { k: "소재 1개", d: "무엇을 · 언제 · 어디서 · 대상 · 행동. 워크시트 한 장이면 됩니다." },
   { k: "다섯 칸 프롬프트", d: "역할·관련정보·목적·조건·분량을 서버가 자동으로 채웁니다." },
-  { k: "최고 품질 모델", d: "Claude Opus 5 · GPT Image 2.5 · Seedance 2.5 · ElevenLabs Music." },
+  { k: "최고 품질 모델", d: "Claude Opus 5 · GPT Image 2.5 · Kling 3.0 · ElevenLabs Music." },
   { k: "사람이 확인, 바로 배포", d: "날짜·숫자·연락처 점검 후 카톡·유튜브로. 결과물은 보관함에." },
 ];
 
@@ -76,7 +76,7 @@ export default async function Home() {
           <div className="ticker">
             {[...Array(2)].map((_, i) => (
               <span key={i} className="flex gap-12">
-                {["Claude Opus 5 · 기획·원고·가사", "GPT Image 2.5 · 한글 포스터", "Seedance 2.5 · 720p 영상", "ElevenLabs Music · 응원송 작곡", "한글 HWPX · 공문 규격", "토스페이먼츠 · 월 정액"].map((t) => (
+                {["Claude Opus 5 · 기획·원고·가사", "GPT Image 2.5 · 한글 포스터", "Kling 3.0 · 720p 영상", "ElevenLabs Music · 응원송 작곡", "한글 HWPX · 공문 규격", "토스페이먼츠 · 월 정액"].map((t) => (
                   <span key={t} className="whitespace-nowrap">◆ {t}</span>
                 ))}
               </span>

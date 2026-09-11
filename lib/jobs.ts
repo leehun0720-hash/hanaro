@@ -10,18 +10,25 @@ export type JobContext = {
   /** 진행 상태 갱신 (step·output 병합) */
   update: (patch: { step?: string; output?: Record<string, unknown>; provider_task_ids?: Record<string, string> }) => Promise<Job>;
   /** 파일을 outputs 버킷에 저장하고 assets에 기록 */
-  saveAsset: (p: { kind: AssetKind; ext: string; data: Buffer; mime: string; meta?: Record<string, unknown> }) => Promise<{ id: string; storage_path: string }>;
+  saveAsset: (p: { kind: AssetKind; ext: string; data: Buffer; mime: string; meta?: Record<string, unknown>; deleteAfter?: string | null }) => Promise<{ id: string; storage_path: string }>;
   /** 업로드된 프로젝트 사진을 읽어온다 */
   loadPhotos: () => Promise<{ data: Buffer; name: string; mime: string }[]>;
 };
 
-/** 파이프라인 단계 실행 결과: 다음 step 또는 완료 */
+/**
+ * 파이프라인 단계 실행 결과: 다음 step 또는 완료.
+ * next가 "await:"로 시작하면 작업은 waiting 상태가 되어 사용자의 확인(resume)을 기다린다.
+ */
 export type StepResult = { next: string } | { done: true };
+
+export const isAwaitStep = (step: string | null | undefined) => Boolean(step && step.startsWith("await:"));
 
 export type Pipeline = {
   firstStep: string;
   /** 단계 실행. 예외를 던지면 job 실패 + ro 환불 */
   run: (ctx: JobContext, step: string) => Promise<StepResult>;
+  /** waiting 상태에서 사용자의 입력을 받아 다음 단계를 정한다. 예외는 사용자에게 400으로 전달(작업은 실패하지 않음) */
+  resume?: (ctx: JobContext, action: string, data: Record<string, unknown>) => Promise<StepResult>;
 };
 
 const LOCK_SECONDS = 150;
@@ -30,6 +37,14 @@ export class SubscriptionRequired extends Error {
   constructor() {
     super("구독 중인 회원만 사용할 수 있습니다. 구독을 시작해 주세요.");
     this.name = "SubscriptionRequired";
+  }
+}
+
+/** resume 입력이 잘못되었을 때 (작업은 유지, 사용자에게만 알림) */
+export class ResumeInputError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ResumeInputError";
   }
 }
 
@@ -52,27 +67,11 @@ export async function createJob(p: { userId: string; type: JobType; projectId: s
   return job as Job;
 }
 
-/** 폴링 시 호출: 잠금을 잡고 현재 단계를 한 번 실행 */
-export async function advanceJob(jobId: string, userId: string): Promise<Job> {
+/** 파이프라인에 넘길 컨텍스트 구성 (advanceJob·resumeJob·웹훅 공용) */
+export async function buildContext(job: Job, userId: string): Promise<JobContext> {
   const db = adminClient();
-  const { data: job } = await db.from("jobs").select("*").eq("id", jobId).eq("user_id", userId).single();
-  if (!job) throw new Error("작업을 찾을 수 없습니다.");
-  const j = job as Job;
-  if (j.status === "succeeded" || j.status === "failed") return j;
-
-  // 잠금: lock_until이 미래면 다른 요청이 실행 중
-  const now = new Date();
-  const lockUntil = new Date(now.getTime() + LOCK_SECONDS * 1000).toISOString();
-  const { data: locked } = await db
-    .from("jobs")
-    .update({ status: "running", lock_until: lockUntil })
-    .eq("id", jobId)
-    .or(`lock_until.is.null,lock_until.lt.${now.toISOString()}`)
-    .select("*")
-    .maybeSingle();
-  if (!locked) return j; // 다른 요청이 처리 중 → 현재 상태 반환
-
-  let current = locked as Job;
+  const jobId = job.id;
+  let current = job;
   const [{ data: project }, { data: profile }] = await Promise.all([
     current.project_id ? db.from("projects").select("*").eq("id", current.project_id).maybeSingle() : Promise.resolve({ data: null }),
     db.from("profiles").select("org_name").eq("id", userId).single(),
@@ -93,13 +92,13 @@ export async function advanceJob(jobId: string, userId: string): Promise<Job> {
       ctx.job = current;
       return current;
     },
-    saveAsset: async ({ kind, ext, data, mime, meta }) => {
+    saveAsset: async ({ kind, ext, data, mime, meta, deleteAfter }) => {
       const path = `${userId}/${jobId}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await db.storage.from("outputs").upload(path, data, { contentType: mime, upsert: false });
       if (upErr) throw new Error(`파일 저장 실패: ${upErr.message}`);
       const { data: asset, error } = await db
         .from("assets")
-        .insert({ user_id: userId, job_id: jobId, kind, storage_path: path, mime, size: data.length, meta: meta ?? {} })
+        .insert({ user_id: userId, job_id: jobId, kind, storage_path: path, mime, size: data.length, meta: meta ?? {}, ...(deleteAfter ? { delete_after: deleteAfter } : {}) })
         .select("id, storage_path")
         .single();
       if (error) throw error;
@@ -116,6 +115,33 @@ export async function advanceJob(jobId: string, userId: string): Promise<Job> {
       return out;
     },
   };
+  return ctx;
+}
+
+/** 폴링 시 호출: 잠금을 잡고 현재 단계를 한 번 실행 */
+export async function advanceJob(jobId: string, userId: string): Promise<Job> {
+  const db = adminClient();
+  const { data: job } = await db.from("jobs").select("*").eq("id", jobId).eq("user_id", userId).single();
+  if (!job) throw new Error("작업을 찾을 수 없습니다.");
+  const j = job as Job;
+  // 완료·실패·사용자 확인 대기 중이면 실행하지 않는다
+  if (j.status === "succeeded" || j.status === "failed" || j.status === "waiting") return j;
+
+  // 잠금: lock_until이 미래면 다른 요청이 실행 중
+  const now = new Date();
+  const lockUntil = new Date(now.getTime() + LOCK_SECONDS * 1000).toISOString();
+  const { data: locked } = await db
+    .from("jobs")
+    .update({ status: "running", lock_until: lockUntil })
+    .eq("id", jobId)
+    .in("status", ["queued", "running"])
+    .or(`lock_until.is.null,lock_until.lt.${now.toISOString()}`)
+    .select("*")
+    .maybeSingle();
+  if (!locked) return j; // 다른 요청이 처리 중 → 현재 상태 반환
+
+  const current = locked as Job;
+  const ctx = await buildContext(current, userId);
 
   try {
     const result = await getPipeline(current.type).run(ctx, current.step ?? getPipeline(current.type).firstStep);
@@ -123,15 +149,78 @@ export async function advanceJob(jobId: string, userId: string): Promise<Job> {
       const { data } = await db.from("jobs").update({ status: "succeeded", step: "done", lock_until: null, finished_at: new Date().toISOString() }).eq("id", jobId).select("*").single();
       return data as Job;
     }
-    const { data } = await db.from("jobs").update({ step: result.next, lock_until: null }).eq("id", jobId).select("*").single();
+    const status = isAwaitStep(result.next) ? "waiting" : "running";
+    const { data } = await db.from("jobs").update({ step: result.next, status, lock_until: null }).eq("id", jobId).select("*").single();
     return data as Job;
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     console.error(`[job ${jobId}] step ${current.step} failed:`, e);
-    await failJob(current, message);
+    await failJob(ctx.job, message);
     const { data } = await db.from("jobs").select("*").eq("id", jobId).single();
     return data as Job;
   }
+}
+
+/**
+ * waiting 상태의 작업에 사용자 입력을 전달해 다음 단계로 보낸다.
+ * 단계 실행은 하지 않고 step·status만 바꾼다 → 화면의 다음 폴링에서 advanceJob이 실행한다.
+ */
+export async function resumeJob(jobId: string, userId: string, action: string, data: Record<string, unknown>): Promise<Job> {
+  const db = adminClient();
+  const { data: job } = await db.from("jobs").select("*").eq("id", jobId).eq("user_id", userId).single();
+  if (!job) throw new ResumeInputError("작업을 찾을 수 없습니다.");
+  const j = job as Job;
+  if (j.status !== "waiting" || !isAwaitStep(j.step)) throw new ResumeInputError("지금은 입력을 받을 수 있는 단계가 아닙니다.");
+  const pipeline = getPipeline(j.type);
+  if (!pipeline.resume) throw new ResumeInputError("이 작업 유형은 중간 입력을 지원하지 않습니다.");
+
+  const ctx = await buildContext(j, userId);
+  const result = await pipeline.resume(ctx, action, data);
+  if ("done" in result) {
+    const { data: done } = await db.from("jobs").update({ status: "succeeded", step: "done", lock_until: null, finished_at: new Date().toISOString() }).eq("id", jobId).select("*").single();
+    return done as Job;
+  }
+  const status = isAwaitStep(result.next) ? "waiting" : "queued";
+  const { data: next } = await db.from("jobs").update({ step: result.next, status, lock_until: null }).eq("id", jobId).select("*").single();
+  return next as Job;
+}
+
+/**
+ * 잠금을 잡는다 (advanceJob과 동일 규칙). 성공하면 잠긴 최신 job, 아니면 null.
+ * 웹훅 처리처럼 폴링과 경쟁하는 경로에서 사용.
+ */
+export async function tryLockJob(jobId: string, expectStep?: string): Promise<Job | null> {
+  const db = adminClient();
+  const now = new Date();
+  const lockUntil = new Date(now.getTime() + LOCK_SECONDS * 1000).toISOString();
+  let q = db.from("jobs").update({ status: "running", lock_until: lockUntil }).eq("id", jobId).in("status", ["queued", "running"]).or(`lock_until.is.null,lock_until.lt.${now.toISOString()}`);
+  if (expectStep) q = q.eq("step", expectStep);
+  const { data } = await q.select("*").maybeSingle();
+  return (data as Job | null) ?? null;
+}
+
+/** 잠금 안에서 단계 결과를 반영 (웹훅 등 외부 경로용) */
+export async function applyStepResult(jobId: string, result: StepResult): Promise<Job> {
+  const db = adminClient();
+  if ("done" in result) {
+    const { data } = await db.from("jobs").update({ status: "succeeded", step: "done", lock_until: null, finished_at: new Date().toISOString() }).eq("id", jobId).select("*").single();
+    return data as Job;
+  }
+  const status = isAwaitStep(result.next) ? "waiting" : "running";
+  const { data } = await db.from("jobs").update({ step: result.next, status, lock_until: null }).eq("id", jobId).select("*").single();
+  return data as Job;
+}
+
+/** 사용자·관리자 취소: 진행 중 작업을 실패 처리하고 ro 환불 (SPEC §10 cancel) */
+export async function cancelJob(jobId: string, by: "user" | "admin"): Promise<Job> {
+  const db = adminClient();
+  const { data: job } = await db.from("jobs").select("*").eq("id", jobId).single();
+  if (!job) throw new ResumeInputError("작업을 찾을 수 없어요.");
+  const j = job as Job;
+  if (j.status === "succeeded" || j.status === "failed") return j;
+  await failJob(j, by === "admin" ? "강사가 작업을 취소했어요." : "작업을 취소했어요.");
+  const { data } = await db.from("jobs").select("*").eq("id", jobId).single();
+  return data as Job;
 }
 
 export async function failJob(job: Job, message: string) {
