@@ -1,7 +1,9 @@
 import { adminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/auth";
 import { Alert } from "@/components/Alert";
 import type { Profile, Subscription } from "@/lib/types";
-import { adjustCredits, setRole, setSubscriptionStatus } from "./credits/actions";
+import { adjustCredits, setRole, setSubscriptionStatus, updateMember } from "./credits/actions";
+import { DeleteMemberButton } from "./DeleteMemberButton";
 
 export const metadata = { title: "관리자 · 회원" };
 export const dynamic = "force-dynamic";
@@ -10,6 +12,7 @@ type Row = Profile & { subscriptions: Subscription[] | Subscription | null };
 
 export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
   const sp = await searchParams;
+  const me = await requireAdmin();
   const { data } = await adminClient().from("profiles").select("*, subscriptions(*)").order("created_at", { ascending: false }).limit(500);
   const rows = (data ?? []) as Row[];
   const subOf = (r: Row) => (Array.isArray(r.subscriptions) ? r.subscriptions[0] : r.subscriptions) ?? null;
@@ -24,16 +27,27 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
       {typeof sp.error === "string" && <Alert kind="error">{sp.error}</Alert>}
 
       <div className="card overflow-x-auto p-0">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[1100px] text-sm">
           <thead className="bg-brand-soft text-left text-brand-deep">
-            <tr><th className="px-4 py-2">회원</th><th className="px-4 py-2">역할</th><th className="px-4 py-2">구독</th><th className="px-4 py-2">다음 결제</th><th className="px-4 py-2">ro</th><th className="px-4 py-2">조정</th></tr>
+            <tr><th className="px-4 py-2">회원</th><th className="px-4 py-2">역할</th><th className="px-4 py-2">구독</th><th className="px-4 py-2">다음 결제</th><th className="px-4 py-2">ro</th><th className="px-4 py-2">조정</th><th className="px-4 py-2">관리</th></tr>
           </thead>
           <tbody>
             {rows.map((r) => {
               const s = subOf(r);
               return (
                 <tr key={r.id} className="border-t border-line align-top">
-                  <td className="px-4 py-3"><div className="font-medium">{r.name || "-"}</div><div className="text-xs text-muted">{r.email}{r.org_name ? ` · ${r.org_name}` : ""}</div><div className="text-xs text-muted">{new Date(r.created_at).toLocaleDateString("ko-KR")} 가입</div></td>
+                  <td className="px-4 py-3">
+                    <form action={updateMember} className="space-y-1">
+                      <input type="hidden" name="user_id" value={r.id} />
+                      <div className="flex items-center gap-1">
+                        <input name="name" defaultValue={r.name ?? ""} placeholder="이름" maxLength={60} className="input w-28 py-1 text-xs" />
+                        <input name="org_name" defaultValue={r.org_name ?? ""} placeholder="소속" maxLength={60} className="input w-28 py-1 text-xs" />
+                        <button className="btn-secondary px-2 py-1 text-xs">수정</button>
+                      </div>
+                      <div className="text-xs text-muted">{r.email}</div>
+                      <div className="text-xs text-muted">{new Date(r.created_at).toLocaleDateString("ko-KR")} 가입</div>
+                    </form>
+                  </td>
                   <td className="px-4 py-3">
                     <form action={setRole} className="flex items-center gap-1">
                       <input type="hidden" name="user_id" value={r.id} />
@@ -61,6 +75,7 @@ export default async function AdminHome({ searchParams }: PageProps<"/admin">) {
                       <button className="btn-primary px-2 py-1 text-xs">적용</button>
                     </form>
                   </td>
+                  <td className="px-4 py-3"><DeleteMemberButton userId={r.id} email={r.email} disabled={r.id === me.id} /></td>
                 </tr>
               );
             })}
