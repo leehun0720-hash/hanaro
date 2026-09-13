@@ -50,7 +50,7 @@ npm run build
 
 ## 3. Supabase 설정
 
-1. Supabase 대시보드 → **SQL Editor** → `supabase/migrations/0001_init.sql`, 이어서 `0002_banana.sql`, `0003_practice.sql`, `0004_practice_spec.sql`, `0005_app_secrets.sql`을 순서대로 붙여넣고 실행.
+1. Supabase 대시보드 → **SQL Editor** → `supabase/migrations/0001_init.sql`, 이어서 `0002_banana.sql`, `0003_practice.sql`, `0004_practice_spec.sql`, `0005_app_secrets.sql`, `0006_service_role_check.sql`을 순서대로 붙여넣고 실행.
    테이블·RLS·크레딧 함수(`deduct_credits`/`add_credits`/`set_credits`)·Storage 버킷(`uploads`, `outputs`)이 만들어집니다.
 2. **Authentication → Providers**: Email 활성화. 구글 로그인은 Google 제공자에 OAuth 클라이언트 등록 후
    Redirect URL에 `https://<프로젝트>.supabase.co/auth/v1/callback` 추가.

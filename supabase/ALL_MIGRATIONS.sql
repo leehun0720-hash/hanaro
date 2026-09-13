@@ -1,6 +1,6 @@
--- 하나로AI스튜디오 전체 마이그레이션 (0001~0005 순서대로 합침). Supabase SQL Editor에 통째로 붙여넣고 Run.
+-- 하나로AI스튜디오 전체 마이그레이션 (0001~0006 순서대로 합침). Supabase SQL Editor에 통째로 붙여넣고 Run.
 
--- ===== supabase/migrations/0001_init.sql =====
+-- ===== supabase/migrations\0001_init.sql =====
 -- 하나로AI스튜디오 초기 스키마
 -- Supabase Dashboard → SQL Editor 에 붙여넣어 실행하세요.
 
@@ -227,10 +227,13 @@ create policy "storage own folder" on storage.objects for all
   with check (bucket_id in ('uploads','outputs') and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ---------- 최초 관리자 지정 (이메일 수정 후 실행) ----------
+-- SQL Editor에서는 보호 트리거를 잠깐 꺼야 한다:
+-- alter table profiles disable trigger profiles_protect;
 -- update profiles set role = 'admin' where email = 'admin@example.com';
+-- alter table profiles enable trigger profiles_protect;
 
 
--- ===== supabase/migrations/0002_banana.sql =====
+-- ===== supabase/migrations\0002_banana.sql =====
 -- ro 요금정책 (지니젠 벤치마크) — 0001 적용 후 실행
 
 -- 1) 충전분 잔고 분리: credits = 월 지급(구독, 결제일마다 재설정) / banana_purchased = 충전분(무기한)
@@ -366,7 +369,7 @@ begin
 end $$;
 
 
--- ===== supabase/migrations/0003_practice.sql =====
+-- ===== supabase/migrations\0003_practice.sql =====
 -- 실습 제작실(사진→영상) + 사용자 확인 대기 상태
 -- 0001_init.sql, 0002_banana.sql 다음에 실행
 
@@ -382,7 +385,7 @@ alter table jobs add constraint jobs_status_check
 create index if not exists jobs_step_status on jobs (step, status);
 
 
--- ===== supabase/migrations/0004_practice_spec.sql =====
+-- ===== supabase/migrations\0004_practice_spec.sql =====
 -- 실습 제작실 SPEC v1.0 반영 (Kling 3.0 via fal.ai · 하드캡 크레딧 · 동의 · 삭제 예정일 · 비용)
 -- 0001 → 0002 → 0003 다음에 실행
 
@@ -450,7 +453,7 @@ begin
 end $$;
 
 
--- ===== supabase/migrations/0005_app_secrets.sql =====
+-- ===== supabase/migrations\0005_app_secrets.sql =====
 -- 관리자 화면에서 입력하는 API 키 저장소 (서비스 롤 전용)
 -- 값은 서버에서 AES-256-GCM으로 암호화해 저장한다 (키 파생: SUPABASE_SERVICE_ROLE_KEY)
 create table if not exists app_secrets (
@@ -462,4 +465,44 @@ create table if not exists app_secrets (
 );
 alter table app_secrets enable row level security;
 -- 정책 없음: anon/authenticated 접근 불가, 서비스 롤만 읽고 쓴다
+
+
+-- ===== supabase/migrations\0006_service_role_check.sql =====
+-- profiles 보호 트리거의 서비스 롤 판별 수정
+-- 옛 PostgREST 설정(request.jwt.claim.role)은 더 이상 채워지지 않아 서버(서비스 키)의 크레딧·역할 변경이 전부 막혔다.
+-- 현재 값(request.jwt.claims JSON)과 auth.role()을 모두 확인한다. 0001~0005 다음에 실행.
+
+create or replace function is_service_role() returns boolean
+language plpgsql stable as $$
+declare v text;
+begin
+  -- 1) 새 방식: JSON claims
+  begin
+    v := current_setting('request.jwt.claims', true)::json ->> 'role';
+  exception when others then v := null;
+  end;
+  if v = 'service_role' then return true; end if;
+  -- 2) 옛 방식
+  if current_setting('request.jwt.claim.role', true) = 'service_role' then return true; end if;
+  -- 3) Supabase 헬퍼
+  begin
+    if auth.role() = 'service_role' then return true; end if;
+  exception when others then null;
+  end;
+  -- 4) SQL Editor·마이그레이션(postgres 슈퍼유저)에서 직접 실행하는 경우
+  if current_user in ('postgres', 'supabase_admin') and current_setting('request.jwt.claims', true) is null then return true; end if;
+  return false;
+end $$;
+
+create or replace function protect_profile_role() returns trigger language plpgsql as $$
+begin
+  if is_service_role() then return new; end if;
+  if new.role <> old.role and not is_admin() then
+    raise exception 'ROLE_CHANGE_FORBIDDEN';
+  end if;
+  if new.credits <> old.credits or new.banana_purchased <> old.banana_purchased then
+    raise exception 'CREDITS_CHANGE_FORBIDDEN';
+  end if;
+  return new;
+end $$;
 
