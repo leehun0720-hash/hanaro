@@ -1,5 +1,16 @@
 import { Alert } from "@/components/Alert";
 import { listSecretStatus } from "@/lib/secrets";
+import { adminClient } from "@/lib/supabase/admin";
+
+/** 서비스 롤 키가 실제로 동작하는지 (RLS 우회 조회). 실패하면 Vercel 환경변수 문제 */
+async function serviceKeyCheck(): Promise<string | null> {
+  try {
+    const { error } = await adminClient().from("app_secrets").select("name", { count: "exact", head: true });
+    return error ? `${error.message}${error.code ? ` [${error.code}]` : ""}` : null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
+}
 import { KeyRow } from "./KeyRow";
 
 export const metadata = { title: "관리자 · API 키" };
@@ -8,7 +19,7 @@ export const dynamic = "force-dynamic";
 /** API 키 관리 (관리자 전용). 값은 DB에 암호화 저장되며 화면에는 마스킹된 힌트만 표시 */
 export default async function AdminKeysPage({ searchParams }: PageProps<"/admin/keys">) {
   const sp = await searchParams;
-  const rows = await listSecretStatus();
+  const [rows, svcError] = await Promise.all([listSecretStatus(), serviceKeyCheck()]);
   const groups = Array.from(new Set(rows.map((r) => r.group)));
 
   return (
@@ -20,6 +31,12 @@ export default async function AdminKeysPage({ searchParams }: PageProps<"/admin/
       {typeof sp.ok === "string" && <Alert kind="success">{sp.ok}</Alert>}
       {typeof sp.error === "string" && <Alert kind="error">{sp.error}</Alert>}
       {!process.env.SUPABASE_SERVICE_ROLE_KEY && <Alert kind="error">서버에 SUPABASE_SERVICE_ROLE_KEY가 없어 키를 암호화할 수 없습니다. Vercel 환경변수를 확인하세요.</Alert>}
+      {svcError && (
+        <Alert kind="error">
+          <b>서버의 Supabase 서비스 키가 동작하지 않습니다.</b> 오류: {svcError}
+          <br />Vercel → Settings → Environment Variables에서 <code>SUPABASE_SERVICE_ROLE_KEY</code> 값을 Supabase API Keys 화면의 <b>Secret key(sb_secret_…)</b>로 다시 입력하고 Redeploy 하세요. 값 앞뒤에 공백·줄바꿈이 없어야 합니다.
+        </Alert>
+      )}
       <Alert kind="warn">키는 강사(관리자)만 볼 수 있는 이 화면에서만 다루세요. 대화·메일·문서에 키를 붙여 넣지 마세요.</Alert>
 
       {groups.map((g) => (
