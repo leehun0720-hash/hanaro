@@ -3,24 +3,42 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { Cue } from "@/lib/video/subtitles";
 import { burnSubtitles, DEFAULT_STYLE, downloadFileName, loadFFmpeg, type SubtitleStyle } from "@/lib/video/wasm-subtitles";
 
+/** 실제로 화면에 나올 수 있는 자막: 문구가 있고 끝이 시작보다 큰 것 */
+export const validCues = (cues: Cue[]) => cues.filter((c) => c.text.trim() && c.end > c.start);
+
 export function CueEditor({ cues, onChange, total, maxChars = 20 }: { cues: Cue[]; onChange: (c: Cue[]) => void; total: number; maxChars?: number }) {
   const set = (i: number, patch: Partial<Cue>) => onChange(cues.map((c, j) => (j === i ? { ...c, ...patch } : c)));
+  const add = () => {
+    const last = cues.at(-1);
+    // 마지막 자막이 영상 끝까지 차 있으면 절반으로 나눠 새 줄을 만든다 (시작=끝인 0초 자막 방지)
+    if (last && last.end >= total && last.end - last.start >= 1) {
+      const mid = Math.round(((last.start + last.end) / 2) * 2) / 2;
+      onChange([...cues.slice(0, -1), { ...last, end: mid }, { start: mid, end: total, text: "" }]);
+    } else {
+      onChange([...cues, { start: Math.min(last?.end ?? 0, Math.max(0, total - 1)), end: total, text: "" }]);
+    }
+  };
   return (
     <div className="space-y-2">
-      {cues.map((c, i) => (
-        <div key={i} className="grid grid-cols-[4.5rem_4.5rem_1fr_auto] items-center gap-2">
-          <input type="number" min={0} max={total} step={0.5} value={c.start} onChange={(e) => set(i, { start: Number(e.target.value) })} className="input px-2 py-1.5" aria-label="시작 초" />
-          <input type="number" min={0} max={total} step={0.5} value={c.end} onChange={(e) => set(i, { end: Number(e.target.value) })} className="input px-2 py-1.5" aria-label="끝 초" />
-          <div>
-            <input value={c.text} maxLength={60} onChange={(e) => set(i, { text: e.target.value })} className="input px-2 py-1.5" placeholder={`자막 문구 (${maxChars}자 이내 권장)`} />
-            {[...c.text].length > maxChars && <p className="text-[11px] text-danger mt-0.5">{[...c.text].length}자 — 한 줄에 너무 길어요. 줄을 나누세요.</p>}
+      <div className="grid grid-cols-[4.5rem_4.5rem_1fr_auto] gap-2 text-[11px] text-muted"><span>시작(초)</span><span>끝(초)</span><span>자막 문구</span><span /></div>
+      {cues.map((c, i) => {
+        const bad = c.end <= c.start;
+        return (
+          <div key={i} className="grid grid-cols-[4.5rem_4.5rem_1fr_auto] items-start gap-2">
+            <input type="number" min={0} max={total} step={0.5} value={c.start} onChange={(e) => set(i, { start: Number(e.target.value) })} className={`input px-2 py-1.5 ${bad ? "border-danger" : ""}`} aria-label="시작 초" />
+            <input type="number" min={0} max={total} step={0.5} value={c.end} onChange={(e) => set(i, { end: Number(e.target.value) })} className={`input px-2 py-1.5 ${bad ? "border-danger" : ""}`} aria-label="끝 초" />
+            <div>
+              <input value={c.text} maxLength={60} onChange={(e) => set(i, { text: e.target.value })} className="input px-2 py-1.5" placeholder={`자막 문구 (${maxChars}자 이내 권장)`} />
+              {bad && <p className="text-[11px] text-danger mt-0.5">끝(초)이 시작(초)보다 커야 화면에 나와요. 예) 시작 0 · 끝 {total}</p>}
+              {!bad && [...c.text].length > maxChars && <p className="text-[11px] text-danger mt-0.5">{[...c.text].length}자 — 한 줄에 너무 길어요. 줄을 나누세요.</p>}
+            </div>
+            <button type="button" onClick={() => onChange(cues.filter((_, j) => j !== i))} className="text-muted hover:text-danger px-1 py-1.5" aria-label="삭제">✕</button>
           </div>
-          <button type="button" onClick={() => onChange(cues.filter((_, j) => j !== i))} className="text-muted hover:text-danger px-1" aria-label="삭제">✕</button>
-        </div>
-      ))}
+        );
+      })}
       <div className="flex items-center justify-between">
-        <p className="hint">시작·끝은 초 단위(0~{total}). 줄바꿈은 Enter 대신 자막을 나눠 추가하세요.</p>
-        <button type="button" disabled={cues.length >= 12} onClick={() => onChange([...cues, { start: cues.at(-1)?.end ?? 0, end: total, text: "" }])} className="btn-secondary text-xs">+ 자막 추가</button>
+        <p className="hint">영상 전체에 한 줄만 넣으려면 시작 0 · 끝 {total}. 여러 줄이면 구간을 나눕니다.</p>
+        <button type="button" disabled={cues.length >= 12} onClick={add} className="btn-secondary text-xs">+ 자막 추가</button>
       </div>
     </div>
   );
@@ -130,9 +148,9 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
         )}
       </div>
 
-      {!cues.some((c) => c.text.trim()) && <p className="text-sm text-danger">자막 문구를 한 줄 이상 입력해야 자막을 입힐 수 있어요.</p>}
+      {validCues(cues).length === 0 && <p className="text-sm text-danger">문구가 있고 끝(초)이 시작(초)보다 큰 자막이 한 줄 이상 있어야 자막을 입힐 수 있어요.</p>}
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" className="btn-primary" disabled={working || busy || !cues.some((c) => c.text.trim())} onClick={run}>
+        <button type="button" className="btn-primary" disabled={working || busy || validCues(cues).length === 0} onClick={run}>
           {phase === "loading" ? "도구 불러오는 중 (최초 1회 ~30MB)…" : phase === "encoding" ? `자막 입히는 중 ${Math.round(progress * 100)}%` : outUrl ? "다시 만들기" : "⑤ 내 브라우저에서 자막 입히기"}
         </button>
         <button type="button" className="btn-secondary text-xs" disabled={working || busy} onClick={onServerFallback}>브라우저에서 안 되면 서버에서 합성</button>

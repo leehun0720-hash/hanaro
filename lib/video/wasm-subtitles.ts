@@ -97,6 +97,7 @@ export async function burnSubtitles(opts: BurnOptions): Promise<Blob> {
   const ff = await loadFFmpeg();
   const size = opts.size ?? { w: 1920, h: 1080 };
   const style = opts.style ?? DEFAULT_STYLE;
+  if (!opts.cues.some((c) => c.text.trim() && c.end > c.start)) throw new Error("화면에 나올 자막이 없어요. 끝(초)이 시작(초)보다 큰지 확인하세요.");
   opts.onProgress?.(0, "준비 중");
 
   await ff.createDir("/fonts").catch(() => {});
