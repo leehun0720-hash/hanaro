@@ -37,7 +37,8 @@ type Props = {
   onServerFallback: () => Promise<void>;
   /** 완성본을 갤러리에 보관(선택) */
   onKeep?: (blob: Blob) => Promise<void>;
-  onFinish: () => Promise<void>;
+  /** 완료. 브라우저에서 만든 결과가 있으면 그 파일을 함께 넘긴다 */
+  onFinish: (burned: Blob | null) => Promise<void>;
   busy: boolean;
 };
 
@@ -129,6 +130,7 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
         )}
       </div>
 
+      {!cues.some((c) => c.text.trim()) && <p className="text-sm text-danger">자막 문구를 한 줄 이상 입력해야 자막을 입힐 수 있어요.</p>}
       <div className="flex flex-wrap items-center gap-2">
         <button type="button" className="btn-primary" disabled={working || busy || !cues.some((c) => c.text.trim())} onClick={run}>
           {phase === "loading" ? "도구 불러오는 중 (최초 1회 ~30MB)…" : phase === "encoding" ? `자막 입히는 중 ${Math.round(progress * 100)}%` : outUrl ? "다시 만들기" : "⑤ 내 브라우저에서 자막 입히기"}
@@ -162,9 +164,9 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
                 {kept ? "갤러리에 보관됨" : "수업 갤러리에 보관 (선택)"}
               </button>
             )}
-            <button type="button" className="btn-secondary" disabled={busy} onClick={onFinish}>완료</button>
+            <button type="button" className="btn-secondary" disabled={busy} onClick={() => onFinish(outBlob.current)}>완료 · 이 영상 저장</button>
           </div>
-          <p className="hint">파일명: {downloadFileName(nickname)} · 다운로드 후 ‘완료’를 누르면 실습이 끝납니다.</p>
+          <p className="hint">▲ 자막이 입혀진 결과 영상입니다. 파일명: {downloadFileName(nickname)} · ‘완료’를 누르면 이 영상이 보관함에 저장됩니다.</p>
         </div>
       )}
     </div>

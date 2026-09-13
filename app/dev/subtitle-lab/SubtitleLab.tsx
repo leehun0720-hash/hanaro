@@ -28,7 +28,7 @@ export function SubtitleLab() {
             nickname="테스트"
             busy={false}
             onServerFallback={async () => setDone("서버 대체 경로는 실습 화면에서만 동작해요.")}
-            onFinish={async () => setDone("완료 버튼 눌림")}
+            onFinish={async (b) => setDone(`완료 버튼 눌림 (결과 ${b ? Math.round(b.size / 1024) + "KB" : "없음"})`)}
           />
           {done && <p className="hint">{done}</p>}
         </div>

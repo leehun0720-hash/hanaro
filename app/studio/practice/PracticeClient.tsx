@@ -147,7 +147,17 @@ export function PracticeClient({ userId, nickname, credits, practiceCredits, ini
           return (
             <div className="card space-y-3">
               <h2 className="font-semibold">실습 완료 🎉</h2>
-              {final ? <video src={`/api/assets/${final.id}`} controls playsInline className="w-full rounded-lg border border-line bg-black" /> : clip ? <video src={`/api/assets/${clip.id}`} controls playsInline className="w-full rounded-lg border border-line bg-black" /> : null}
+              {final ? (
+                <>
+                  <p className="text-sm text-muted">자막이 입혀진 완성본</p>
+                  <video src={`/api/assets/${final.id}`} controls playsInline className="w-full rounded-lg border border-line bg-black" />
+                </>
+              ) : clip ? (
+                <>
+                  <p className="text-sm text-danger">자막을 입히지 않고 완료해서 자막 없는 원본만 남았어요. 아래 원본을 내려받아 다시 시작하거나, 새 실습에서 ‘자막 입히기’ 후 ‘완료’를 누르세요.</p>
+                  <video src={`/api/assets/${clip.id}`} controls playsInline className="w-full rounded-lg border border-line bg-black" />
+                </>
+              ) : null}
               <div className="flex flex-wrap gap-2">
                 {final && <a href={`/api/assets/${final.id}?download=1`} className="btn-primary text-xs">보관본 다운로드</a>}
                 {clip && <a href={`/api/assets/${clip.id}?download=1`} className="btn-secondary text-xs">자막 없는 원본 다운로드</a>}
@@ -313,6 +323,7 @@ function SubtitlePanel({ r, resume, busy, userId, nickname, ratio, cues, setCues
         <h2 className="font-semibold">⑤ 한글 자막 입히기 · ⑥ 다운로드</h2>
         <CancelButton jobId={r.job.id} busy={busy} />
       </div>
+      <p className="text-sm text-muted">▼ Kling이 만든 <b>자막 없는 원본</b>입니다. 아래에서 자막을 적고 ‘자막 입히기’를 누르면 결과 영상이 그 아래에 나타납니다.</p>
       {clip && <video key={clip.id} src={`/api/assets/${clip.id}`} controls playsInline className={`w-full rounded-lg border border-line bg-black ${ratio === "9:16" ? "max-h-[60vh] mx-auto" : ""}`} />}
       {o.plan?.dialogue_ko && <p className="text-sm"><span className="text-muted">대사:</span> {o.plan.dialogue_ko}</p>}
       {final && (
@@ -335,7 +346,15 @@ function SubtitlePanel({ r, resume, busy, userId, nickname, ratio, cues, setCues
             await uploadToStorage("outputs", path, blob, "video/mp4");
             setKeptPath(path);
           }}
-          onFinish={() => resume("finish", keptPath ? { finalPath: keptPath, cues: effective } : { cues: effective })}
+          onFinish={async (burned) => {
+            let finalPath = keptPath;
+            if (!finalPath && burned) {
+              // 보관 버튼을 누르지 않았어도 완료 시 자막 영상을 저장해 완료 화면·보관함에 남긴다
+              finalPath = `${userId}/${r.job.id}/final-${Date.now()}.mp4`;
+              await uploadToStorage("outputs", finalPath, burned, "video/mp4");
+            }
+            await resume("finish", finalPath ? { finalPath, cues: effective } : { cues: effective });
+          }}
         />
       )}
       <details className="rounded-lg border border-line p-3">
