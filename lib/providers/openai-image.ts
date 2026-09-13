@@ -62,7 +62,7 @@ export async function editImage(opts: {
         size: opts.size,
         quality: opts.quality ?? "high",
         output_format: "png",
-        input_fidelity: "high",
+        // input_fidelity: gpt-image-2.5-sunburst 는 이 파라미터를 지원하지 않음 (400)
         n: 1,
       }),
     { tries: 3, label: "gpt-image-edit" },
