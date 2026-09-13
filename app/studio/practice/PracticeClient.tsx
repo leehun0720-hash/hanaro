@@ -340,7 +340,7 @@ function SubtitlePanel({ r, resume, busy, userId, nickname, ratio, cues, setCues
           ratio={ratio}
           nickname={nickname}
           busy={busy}
-          onServerFallback={() => resume("burn_server", { cues: effective })}
+          onServerFallback={(style) => resume("burn_server", { cues: effective, style })}
           onKeep={async (blob) => {
             const path = `${userId}/${r.job.id}/final-${Date.now()}.mp4`;
             await uploadToStorage("outputs", path, blob, "video/mp4");

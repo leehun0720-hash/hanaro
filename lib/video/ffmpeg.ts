@@ -3,6 +3,7 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { subtitleFilter, type Cue } from "./subtitles";
+import type { SubtitleStyle } from "./subtitle-style";
 
 /** ffmpeg 바이너리 경로: 환경변수 > ffmpeg-static */
 export async function ffmpegPath(): Promise<string> {
@@ -66,9 +67,9 @@ export async function concatClips(clips: string[], output: string, dir: string) 
 }
 
 /** 자막 번인 + (선택) 오디오 합성 + 끝 페이드아웃 → 최종 mp4 */
-export async function finalize(video: string, output: string, opts: { cues: Cue[]; size: Size; audio?: string; totalSeconds: number; fadeOut?: boolean; loopAudio?: boolean }) {
+export async function finalize(video: string, output: string, opts: { cues: Cue[]; size: Size; audio?: string; totalSeconds: number; fadeOut?: boolean; loopAudio?: boolean; style?: SubtitleStyle }) {
   const filters: string[] = [];
-  const sub = subtitleFilter(opts.cues, opts.size.h);
+  const sub = subtitleFilter(opts.cues, opts.size.h, opts.style ? { style: opts.style } : {});
   if (sub) filters.push(sub);
   if (opts.fadeOut) filters.push(`fade=t=out:st=${Math.max(0, opts.totalSeconds - 1).toFixed(2)}:d=1`);
   const args = ["-i", video];

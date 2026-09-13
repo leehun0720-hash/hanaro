@@ -27,7 +27,7 @@ export function SubtitleLab() {
             ratio="16:9"
             nickname="테스트"
             busy={false}
-            onServerFallback={async () => setDone("서버 대체 경로는 실습 화면에서만 동작해요.")}
+            onServerFallback={async (st) => setDone(`서버 대체 경로는 실습 화면에서만 동작해요. (스타일: ${st.fontId}/${st.themeId})`)}
             onFinish={async (b) => setDone(`완료 버튼 눌림 (결과 ${b ? Math.round(b.size / 1024) + "KB" : "없음"})`)}
           />
           {done && <p className="hint">{done}</p>}

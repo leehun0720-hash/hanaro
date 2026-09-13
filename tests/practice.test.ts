@@ -18,6 +18,8 @@ import { backoffMs, isRetryable, ProviderHttpError, withRetry } from "@/lib/prov
 import { estimateWaitSeconds, hasCapacity } from "@/lib/concurrency";
 import { isContentRejection, klingCostUsd, koReasonFor, verifyFalSignature } from "@/lib/providers/fal";
 import { buildAss, downloadFileName } from "@/lib/video/wasm-subtitles";
+import { assColor, normalizeStyle } from "@/lib/video/subtitle-style";
+import { subtitleFilter } from "@/lib/video/subtitles";
 import { costFor, DEFAULT_COSTS } from "@/lib/credits";
 
 describe("practice input (SPEC ①②③)", () => {
@@ -95,12 +97,26 @@ describe("자막 (SPEC ⑤)", () => {
     expect("error" in normalizeCues("x", 10)).toBe(true);
   });
   it("ASS 문서: 폰트명·PlayRes·이벤트·이스케이프", () => {
-    const ass = buildAss([{ start: 0, end: 2.5, text: "올해 배 {진짜} 달아요" }, { start: 2.5, end: 5, text: "" }], { position: "top", fontSize: 64, box: true }, { w: 1920, h: 1080 });
+    const ass = buildAss([{ start: 0, end: 2.5, text: "올해 배 {진짜} 달아요" }, { start: 2.5, end: 5, text: "" }], { position: "top", fontSize: 64, fontId: "noto", themeId: "box-black" }, { w: 1920, h: 1080 });
     expect(ass).toContain("PlayResX: 1920");
-    expect(ass).toContain("Style: Default,Noto Sans KR,64,");
+    expect(ass).toContain("Style: Default,Noto Sans KR,64,&H00FFFFFF,");
     expect(ass).toContain(",8,60,60,"); // 상단 정렬
     expect(ass).toContain("Dialogue: 0,0:00:00.00,0:00:02.50,Default,,0,0,0,,올해 배 (진짜) 달아요");
     expect(ass.match(/Dialogue:/g)?.length).toBe(1);
+    // 시작=끝 자막은 제외
+    expect(buildAss([{ start: 5, end: 5, text: "x" }]).match(/Dialogue:/g)).toBeNull();
+  });
+  it("폰트·테마: family 이름과 색이 ASS/drawtext에 반영된다", () => {
+    const ass = buildAss([{ start: 0, end: 5, text: "가" }], { position: "bottom", fontSize: 80, fontId: "blackhan", themeId: "outline-yellow" });
+    expect(ass).toContain("Style: Default,Black Han Sans,80,&H0000E6FF,"); // #FFE600 → BGR 00E6FF
+    expect(ass).toMatch(/,0,0,0,0,100,100,0,0,1,\d+,2,2,60,60,/); // Bold 0 · BorderStyle 1(외곽선) · Shadow 2 · 하단
+    expect(assColor("#0B6B3A", 0.85)).toBe("&H263A6B0B");
+    expect(normalizeStyle({ fontId: "zzz", themeId: "nope", fontSize: 9999, position: "top" })).toEqual({ fontId: "noto", themeId: "box-black", fontSize: 140, position: "top" });
+    const f = subtitleFilter([{ start: 0, end: 5, text: "가" }], 1080, { style: { position: "top", fontSize: 64, fontId: "jua", themeId: "box-green" } });
+    expect(f).toContain("Jua-Regular.ttf");
+    expect(f).toContain("boxcolor=0x0B6B3A@0.85");
+    expect(f).toContain("fontsize=64");
+    expect(f).toContain(":y=86:");
   });
   it("파일명 규칙 {닉네임}_{yyyyMMdd_HHmm}.mp4", () => {
     expect(downloadFileName("홍길동/팀", new Date(2026, 8, 11, 9, 5))).toBe("홍길동_팀_20260911_0905.mp4");

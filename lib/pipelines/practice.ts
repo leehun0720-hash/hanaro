@@ -11,6 +11,7 @@ import { getPracticeCredits, NoPracticeCredits, refundPracticeCredit, consumePra
 import { getSecret } from "@/lib/secrets";
 import { cleanup, downloadTo, finalize, normalizeClip, SIZE_169, SIZE_916, tmpDir } from "@/lib/video/ffmpeg";
 import type { Cue } from "@/lib/video/subtitles";
+import { normalizeStyle, type SubtitleStyle } from "@/lib/video/subtitle-style";
 import {
   assembleKlingPrompt,
   clampDialogue,
@@ -54,6 +55,7 @@ export type PracticeOut = {
   video_tries?: number;
   clip_asset_id?: string;
   cues?: Cue[];
+  subtitle_style?: SubtitleStyle;
   final_asset_id?: string;
   version?: number;
   queue_position?: number | null;
@@ -239,7 +241,7 @@ export const practicePipeline: Pipeline = {
         await normalizeClip(clip, norm, size, duration, { fadeIn: false });
         // 원본 오디오(한국어 음성) 보존: 정규화 영상 + 원본 오디오
         const final = path.join(tmp, "final.mp4");
-        await finalize(norm, final, { cues: o.cues ?? [], size, audio: clip, totalSeconds: duration, fadeOut: false });
+        await finalize(norm, final, { cues: o.cues ?? [], size, audio: clip, totalSeconds: duration, fadeOut: false, style: normalizeStyle(o.subtitle_style) });
         const version = (o.version ?? 0) + 1;
         const data = await fs.readFile(final);
         const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `실습영상_자막_v${version}.mp4`, final: true, version, server: true }, deleteAfter: deleteAfter() });
@@ -310,7 +312,7 @@ export const practicePipeline: Pipeline = {
       if (action === "burn_server") {
         const cs = normalizeCues(data.cues ?? o.cues, duration);
         if ("error" in cs) throw new ResumeInputError(cs.error);
-        await ctx.update({ output: { cues: cs.cues } });
+        await ctx.update({ output: { cues: cs.cues, subtitle_style: normalizeStyle(data.style) } });
         return { next: "compose" };
       }
       if (action === "regenerate_video") {

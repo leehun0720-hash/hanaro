@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Cue } from "@/lib/video/subtitles";
 import { burnSubtitles, DEFAULT_STYLE, downloadFileName, loadFFmpeg, type SubtitleStyle } from "@/lib/video/wasm-subtitles";
+import { fontOf, SUBTITLE_FONTS, SUBTITLE_THEMES, themeOf, type SubtitleFontId, type SubtitleThemeId } from "@/lib/video/subtitle-style";
 
 /** 실제로 화면에 나올 수 있는 자막: 문구가 있고 끝이 시작보다 큰 것 */
 export const validCues = (cues: Cue[]) => cues.filter((c) => c.text.trim() && c.end > c.start);
@@ -51,8 +52,8 @@ type Props = {
   duration: number;
   ratio: "16:9" | "9:16";
   nickname: string;
-  /** 브라우저 처리 실패 시 서버 대체 합성 */
-  onServerFallback: () => Promise<void>;
+  /** 브라우저 처리 실패 시 서버 대체 합성 (현재 스타일 전달) */
+  onServerFallback: (style: SubtitleStyle) => Promise<void>;
   /** 완성본을 갤러리에 보관(선택) */
   onKeep?: (blob: Blob) => Promise<void>;
   /** 완료. 브라우저에서 만든 결과가 있으면 그 파일을 함께 넘긴다 */
@@ -112,7 +113,20 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-3">
+      <FontFaces />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="label">자막 폰트</label>
+          <select value={style.fontId} onChange={(e) => setStyle({ ...style, fontId: e.target.value as SubtitleFontId })} className="input">
+            {Object.values(SUBTITLE_FONTS).map((f) => <option key={f.id} value={f.id}>{f.label}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="label">자막 테마</label>
+          <select value={style.themeId} onChange={(e) => setStyle({ ...style, themeId: e.target.value as SubtitleThemeId })} className="input">
+            {Object.values(SUBTITLE_THEMES).map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+          </select>
+        </div>
         <div>
           <label className="label">자막 위치</label>
           <div className="flex gap-2">
@@ -122,13 +136,10 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
         </div>
         <div>
           <label className="label">글자 크기 {style.fontSize}</label>
-          <input type="range" min={40} max={110} step={2} value={style.fontSize} onChange={(e) => setStyle({ ...style, fontSize: Number(e.target.value) })} className="w-full" />
-        </div>
-        <div>
-          <label className="label">배경 박스</label>
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={style.box} onChange={(e) => setStyle({ ...style, box: e.target.checked })} /> 반투명 검정 박스</label>
+          <input type="range" min={40} max={120} step={2} value={style.fontSize} onChange={(e) => setStyle({ ...style, fontSize: Number(e.target.value) })} className="w-full" />
         </div>
       </div>
+      <StylePreview style={style} text={cues.find((c) => c.text.trim())?.text ?? "자막 미리보기"} ratio={ratio} />
 
       <div>
         <label className="label">자막 ({duration}초 · 한 줄 20자 이내 권장)</label>
@@ -153,7 +164,7 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
         <button type="button" className="btn-primary" disabled={working || busy || validCues(cues).length === 0} onClick={run}>
           {phase === "loading" ? "도구 불러오는 중 (최초 1회 ~30MB)…" : phase === "encoding" ? `자막 입히는 중 ${Math.round(progress * 100)}%` : outUrl ? "다시 만들기" : "⑤ 내 브라우저에서 자막 입히기"}
         </button>
-        <button type="button" className="btn-secondary text-xs" disabled={working || busy} onClick={onServerFallback}>브라우저에서 안 되면 서버에서 합성</button>
+        <button type="button" className="btn-secondary text-xs" disabled={working || busy} onClick={() => onServerFallback(style)}>브라우저에서 안 되면 서버에서 합성</button>
       </div>
       {working && (
         <div>
@@ -187,6 +198,46 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
           <p className="hint">▲ 자막이 입혀진 결과 영상입니다. 파일명: {downloadFileName(nickname)} · ‘완료’를 누르면 이 영상이 보관함에 저장됩니다.</p>
         </div>
       )}
+    </div>
+  );
+}
+
+/** 번들 폰트를 CSS로 등록 (미리보기용). 선택된 폰트만 브라우저가 내려받는다 */
+function FontFaces() {
+  const css = Object.values(SUBTITLE_FONTS)
+    .map((f) => `@font-face{font-family:"sub-${f.id}";src:url("/fonts/${f.file}");font-display:swap;}`)
+    .join("\n");
+  return <style dangerouslySetInnerHTML={{ __html: css }} />;
+}
+
+/** 실제 합성과 비슷한 비율로 자막 모양을 미리 보여준다 (1080p 기준 글자 크기를 축소) */
+function StylePreview({ style, text, ratio }: { style: SubtitleStyle; text: string; ratio: "16:9" | "9:16" }) {
+  const theme = themeOf(style.themeId);
+  const font = fontOf(style.fontId);
+  const previewH = 180;
+  const shownH = ratio === "9:16" ? 1920 * 0.35 : 1080 * 0.5; // 미리보기에 보이는 영상 높이(px, 원본 기준)
+  const px = Math.max(10, Math.round(style.fontSize * (previewH / shownH)));
+  const hexA = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
+  const textStyle: React.CSSProperties = {
+    fontFamily: `"sub-${font.id}", "Noto Sans KR", sans-serif`,
+    fontWeight: font.bold ? 700 : 400,
+    fontSize: px,
+    lineHeight: 1.3,
+    color: theme.text,
+    padding: theme.box ? `${Math.round(px * 0.15)}px ${Math.round(px * 0.4)}px` : 0,
+    background: theme.box ? hexA(theme.box.color, theme.box.alpha) : "transparent",
+    borderRadius: theme.box ? 4 : 0,
+    WebkitTextStroke: theme.box ? undefined : `${Math.max(1, Math.round(px * theme.outline.width * 0.6))}px ${theme.outline.color}`,
+    paintOrder: "stroke fill",
+    textShadow: theme.box ? undefined : `${theme.shadow}px ${theme.shadow}px 2px rgba(0,0,0,.6)`,
+    whiteSpace: "nowrap",
+  };
+  return (
+    <div className="relative overflow-hidden rounded-lg border border-line bg-gradient-to-b from-sky-200 via-amber-100 to-emerald-700" style={{ height: previewH }}>
+      <div className={`absolute left-0 right-0 flex justify-center px-4 ${style.position === "top" ? "top-4" : "bottom-4"}`}>
+        <span style={textStyle}>{text}</span>
+      </div>
+      <span className="absolute right-2 top-2 rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-white">미리보기</span>
     </div>
   );
 }

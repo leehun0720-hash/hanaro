@@ -6,16 +6,9 @@
  *  - 선택: 배경음악 mp3를 원본 음성(Kling 한국어 대사)과 섞는다 (amix, BGM 볼륨 낮춤)
  */
 import type { Cue } from "./subtitles";
+import { assColor, DEFAULT_STYLE, fontOf, themeOf, type SubtitleStyle } from "./subtitle-style";
+export { DEFAULT_STYLE, type SubtitleStyle } from "./subtitle-style";
 
-export type SubtitleStyle = {
-  position: "bottom" | "top";
-  fontSize: number; // 1080p 기준 픽셀 (PlayResY=1080)
-  box: boolean; // 반투명 배경 박스
-};
-
-export const DEFAULT_STYLE: SubtitleStyle = { position: "bottom", fontSize: 64, box: true };
-export const FONT_NAME = "Noto Sans KR";
-export const FONT_URL = "/fonts/NotoSansKR-Bold.otf";
 const CORE_BASE = "/ffmpeg/core";
 const LIB_BASE = "/ffmpeg/lib";
 
@@ -30,10 +23,15 @@ const escapeAss = (t: string) => t.replace(/\\/g, "\\\\").replace(/\{/g, "(").re
 
 /** 큐 → ASS 자막 문서 (순수 함수). PlayRes 1920×1080 기준, 세로 영상은 스케일 자동 적용 */
 export function buildAss(cues: Cue[], style: SubtitleStyle = DEFAULT_STYLE, res: { w: number; h: number } = { w: 1920, h: 1080 }): string {
+  const font = fontOf(style.fontId);
+  const theme = themeOf(style.themeId);
   const align = style.position === "top" ? 8 : 2; // 8=상단 중앙, 2=하단 중앙
   const margin = Math.round(res.h * 0.08);
-  const border = style.box ? 4 : 1; // 4 = 불투명 박스, 1 = 외곽선+그림자
-  const outline = style.box ? Math.round(style.fontSize * 0.25) : 3;
+  const border = theme.box ? 4 : 1; // 4 = 박스, 1 = 외곽선+그림자
+  const outline = theme.box ? Math.round(style.fontSize * 0.25) : Math.max(1, Math.round(style.fontSize * theme.outline.width));
+  const primary = assColor(theme.text);
+  const outlineC = theme.box ? assColor(theme.box.color, theme.box.alpha) : assColor(theme.outline.color);
+  const backC = theme.box ? assColor(theme.box.color, theme.box.alpha) : assColor("#000000", 0.5);
   const header = [
     "[Script Info]",
     "ScriptType: v4.00+",
@@ -44,7 +42,7 @@ export function buildAss(cues: Cue[], style: SubtitleStyle = DEFAULT_STYLE, res:
     "",
     "[V4+ Styles]",
     "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding",
-    `Style: Default,${FONT_NAME},${style.fontSize},&H00FFFFFF,&H000000FF,&H00000000,&H80000000,-1,0,0,0,100,100,0,0,${border},${outline},${style.box ? 0 : 1},${align},60,60,${margin},1`,
+    `Style: Default,${font.family},${style.fontSize},${primary},&H000000FF,${outlineC},${backC},${font.bold ? -1 : 0},0,0,0,100,100,0,0,${border},${outline},${theme.box ? 0 : theme.shadow},${align},60,60,${margin},1`,
     "",
     "[Events]",
     "Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text",
@@ -100,8 +98,9 @@ export async function burnSubtitles(opts: BurnOptions): Promise<Blob> {
   if (!opts.cues.some((c) => c.text.trim() && c.end > c.start)) throw new Error("화면에 나올 자막이 없어요. 끝(초)이 시작(초)보다 큰지 확인하세요.");
   opts.onProgress?.(0, "준비 중");
 
+  const font = fontOf(style.fontId);
   await ff.createDir("/fonts").catch(() => {});
-  await ff.writeFile("/fonts/NotoSansKR-Bold.otf", await fetchFile(FONT_URL));
+  await ff.writeFile(`/fonts/${font.file}`, await fetchFile(`/fonts/${font.file}`)); // 선택한 폰트만 올린다
   await ff.writeFile("in.mp4", await fetchFile(opts.video));
   await ff.writeFile("sub.ass", new TextEncoder().encode(buildAss(opts.cues, style, size)));
   if (opts.bgm) await ff.writeFile("bgm.mp3", await fetchFile(opts.bgm.file));
