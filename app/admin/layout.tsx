@@ -2,9 +2,12 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/auth";
 import { Logo } from "@/components/Logo";
 import { signOut } from "@/app/auth/actions";
+import { Alert } from "@/components/Alert";
+import { serviceKeyCheck } from "@/lib/admin-diag";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
+  const svcError = await serviceKeyCheck();
   const tabs = [
     { href: "/admin", label: "회원·구독" },
     { href: "/admin/jobs", label: "작업 로그" },
@@ -30,7 +33,17 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </header>
-      <main className="mx-auto max-w-6xl p-6 md:p-8">{children}</main>
+      <main className="mx-auto max-w-6xl p-6 md:p-8">
+        {svcError && (
+          <div className="mb-6">
+            <Alert kind="error">
+              <b>서버의 Supabase 서비스 키가 동작하지 않습니다.</b> 오류: {svcError}
+              <br />Vercel → Settings → Environment Variables에서 <code>SUPABASE_SERVICE_ROLE_KEY</code>를 Supabase API Keys 화면의 <b>Secret key(sb_secret_…)</b>로 다시 입력(복사 아이콘 사용)하고 Redeploy 하세요. 이 키가 고장 나면 회원 관리·크레딧·API 키 저장·작업 실행이 모두 실패합니다.
+            </Alert>
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }
