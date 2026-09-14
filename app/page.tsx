@@ -2,7 +2,7 @@ import Link from "next/link";
 import { getProfile } from "@/lib/auth";
 import { getGallery } from "@/lib/gallery";
 import { SiteHeader } from "@/components/SiteHeader";
-import { Logo } from "@/components/Logo";
+import { LegalFooter } from "@/components/LegalFooter";
 import { JOB_TYPE_LABEL } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -182,13 +182,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <footer className="border-t border-line bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-muted">
-          <Logo />
-          <p>절대 수칙 ① 개인정보 입력 금지 ② AI 결과는 초안, 검토는 사람 ③ 저작권·초상권 확인</p>
-          <p>© {new Date().getFullYear()} 하나로AI스튜디오</p>
-        </div>
-      </footer>
+      <LegalFooter />
     </>
   );
 }
