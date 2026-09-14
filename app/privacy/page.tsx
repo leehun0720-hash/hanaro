@@ -3,15 +3,16 @@ import type { ReactNode } from "react";
 import { getProfile } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LegalFooter } from "@/components/LegalFooter";
+import { getBranding, type Branding } from "@/lib/branding";
 
-export const metadata = { title: "개인정보처리방침", description: "하나로AI스튜디오가 수집하는 정보, 이용 목적, 처리 위탁(AI 서비스), 보유 기간과 사용자의 권리.", alternates: { canonical: "/privacy" } };
+export const metadata = { title: "개인정보처리방침", description: "{b.name}가 수집하는 정보, 이용 목적, 처리 위탁(AI 서비스), 보유 기간과 사용자의 권리.", alternates: { canonical: "/privacy" } };
 export const dynamic = "force-dynamic";
 
 const RETENTION_DAYS = Math.max(1, Number(process.env.ASSET_RETENTION_DAYS ?? 7) || 7);
 const UPDATED = "2026-09-14";
 const CONTACT = "leehun0720@gmail.com";
 
-const sections: { h: string; body: ReactNode }[] = [
+const sections = (b: Branding): { h: string; body: ReactNode }[] => [
   {
     h: "1. 수집하는 개인정보",
     body: (
@@ -85,22 +86,22 @@ const sections: { h: string; body: ReactNode }[] = [
   {
     h: "8. 문의",
     body: (
-      <p>개인정보 관련 문의·요청: <a className="text-brand underline" href={`mailto:${CONTACT}`}>{CONTACT}</a> (개인정보 보호책임자: 하나로AI스튜디오 운영자). 접수 후 10일 이내에 답변합니다.</p>
+      <p>개인정보 관련 문의·요청: <a className="text-brand underline" href={`mailto:${CONTACT}`}>{CONTACT}</a> (개인정보 보호책임자: {b.owner}). 접수 후 10일 이내에 답변합니다.</p>
     ),
   },
 ];
 
 export default async function PrivacyPage() {
-  const profile = await getProfile();
+  const [profile, b] = await Promise.all([getProfile(), getBranding()]);
   return (
     <>
       <SiteHeader profile={profile} />
       <main className="mx-auto max-w-3xl px-6 py-14">
         <p className="text-xs uppercase tracking-[0.3em] text-brand">Privacy Policy</p>
         <h1 className="display mt-2 text-4xl font-bold">개인정보처리방침</h1>
-        <p className="mt-3 text-sm text-muted">하나로AI스튜디오(이하 &ldquo;서비스&rdquo;)는 농축협 디지털 프로젝트과정 수강생의 실습을 위한 AI 제작 도구입니다. 서비스는 개인정보보호법 등 관련 법령을 준수하며, 다음과 같이 개인정보를 처리합니다. 시행일: {UPDATED}</p>
+        <p className="mt-3 text-sm text-muted">{b.name}(이하 &ldquo;서비스&rdquo;)는 농축협 디지털 프로젝트과정 수강생의 실습을 위한 AI 제작 도구입니다. 서비스는 개인정보보호법 등 관련 법령을 준수하며, 다음과 같이 개인정보를 처리합니다. 시행일: {UPDATED}</p>
         <div className="mt-10 space-y-8 text-sm leading-relaxed">
-          {sections.map((s) => (
+          {sections(b).map((s) => (
             <section key={s.h}>
               <h2 className="mb-2 text-lg font-bold">{s.h}</h2>
               {s.body}

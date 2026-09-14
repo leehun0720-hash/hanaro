@@ -4,31 +4,33 @@ import { getGallery } from "@/lib/gallery";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LegalFooter } from "@/components/LegalFooter";
 import { JOB_TYPE_LABEL } from "@/lib/types";
-import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
+import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site";
+import { fullName, getBranding, type Branding } from "@/lib/branding";
 
 export const dynamic = "force-dynamic";
-export const metadata = {
-  title: { absolute: "하나로AI스튜디오 — 농축협을 위한 AI 콘텐츠 스튜디오" },
-  alternates: { canonical: "/" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const b = await getBranding();
+  return { title: { absolute: `${fullName(b)} — 농축협을 위한 AI 콘텐츠 스튜디오` }, alternates: { canonical: "/" } };
+}
 
 /** 검색엔진용 구조화 데이터 (조직·웹앱) */
-const jsonLd = {
+const jsonLdFor = (b: Branding) => ({
   "@context": "https://schema.org",
   "@graph": [
-    { "@type": "Organization", name: "하나로AI스튜디오", url: SITE_URL, logo: `${SITE_URL}/opengraph-image` },
+    { "@type": "Organization", name: b.owner, url: SITE_URL, logo: b.logoUrl ?? `${SITE_URL}/opengraph-image` },
     {
       "@type": "WebApplication",
-      name: "하나로AI스튜디오",
+      name: fullName(b),
       url: SITE_URL,
       applicationCategory: "MultimediaApplication",
       operatingSystem: "Web",
       inLanguage: "ko",
-      description: SITE_DESCRIPTION,
+      description: b.tagline,
       offers: { "@type": "Offer", price: "0", priceCurrency: "KRW", description: "가입 시 무료 ro 30개 제공" },
     },
   ],
-};
+});
 
 const rooms = [
   { n: "01", title: "문서 · HWP", tool: "Claude → 한글(HWPX)", desc: "기획서·공문·보고서·보도자료. 읽기는 AI가, 쓰기는 규격대로, 확인은 사람이.", href: "/studio/document", credit: "3" },
@@ -46,12 +48,12 @@ const steps = [
 ];
 
 export default async function Home() {
-  const [profile, gallery] = await Promise.all([getProfile(), getGallery(8)]);
+  const [profile, gallery, brand] = await Promise.all([getProfile(), getGallery(8), getBranding()]);
   const cta = profile ? { href: "/studio", label: "스튜디오 열기" } : { href: "/signup", label: "가입하고 시작하기" };
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFor(brand)) }} />
       <SiteHeader profile={profile} />
 
       {/* HERO */}

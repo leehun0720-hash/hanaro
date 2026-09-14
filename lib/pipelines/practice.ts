@@ -4,12 +4,13 @@ import type { Pipeline, JobContext } from "@/lib/jobs";
 import { ResumeInputError } from "@/lib/jobs";
 import { generateJSON, type ImageInput } from "@/lib/providers/anthropic";
 import { editImage, IMAGE_SIZES } from "@/lib/providers/openai-image";
-import { FAL_VIDEO_ENDPOINT_DEFAULT, FAL_VIDEO_ENDPOINT_PRO, getVideoResult, getVideoStatus, isContentRejection, klingCostUsd, koReasonFor, submitVideo } from "@/lib/providers/fal";
+import { FAL_I2V_AUDIO_ENDPOINT_DEFAULT, FAL_I2V_AUDIO_ENDPOINT_PRO, FAL_VIDEO_ENDPOINT_DEFAULT, FAL_VIDEO_ENDPOINT_PRO, getVideoResult, getVideoStatus, isContentRejection, klingCostUsd, koReasonFor, submitVideo } from "@/lib/providers/fal";
+import { isTtsVoice, synthesizeSpeech, ttsCostUsd } from "@/lib/providers/openai-tts";
 import { adminClient } from "@/lib/supabase/admin";
 import { canStartVideoTasks, countAheadInQueue, estimateWaitSeconds } from "@/lib/concurrency";
 import { getPracticeCredits, NoPracticeCredits, refundPracticeCredit, consumePracticeCredit } from "@/lib/practice-credits";
 import { getSecret } from "@/lib/secrets";
-import { cleanup, downloadTo, finalize, normalizeClip, SIZE_169, SIZE_916, tmpDir } from "@/lib/video/ffmpeg";
+import { buildNarrationTrack, cleanup, downloadTo, finalize, normalizeClip, SIZE_169, SIZE_916, tmpDir } from "@/lib/video/ffmpeg";
 import type { Cue } from "@/lib/video/subtitles";
 import { normalizeStyle, type SubtitleStyle } from "@/lib/video/subtitle-style";
 import {
@@ -52,7 +53,12 @@ export type PracticeOut = {
   prompt_error?: string | null;
   video_prompt?: string; // Kling에 보낼 최종 영어 프롬프트(사용자 수정 반영)
   video_endpoint?: string;
+  /** 현장음(Kling 네이티브 오디오) 켬 — 오디오 지원 엔드포인트 사용 */
+  video_sound?: boolean;
   video_tries?: number;
+  /** 한국어 내레이션(자막 읽어주기) mp3 자산 */
+  narration_asset_id?: string;
+  narration_voice?: string;
   clip_asset_id?: string;
   cues?: Cue[];
   subtitle_style?: SubtitleStyle;
@@ -182,8 +188,10 @@ export const practicePipeline: Pipeline = {
         const base = (await getSecret("APP_BASE_URL")) ?? process.env.NEXT_PUBLIC_SITE_URL;
         const whSecret = await getSecret("FAL_WEBHOOK_SECRET");
         const webhookUrl = base && whSecret && !/localhost|127\.0\.0\.1/.test(base) ? `${base.replace(/\/$/, "")}/api/webhooks/fal?token=${encodeURIComponent(whSecret)}` : undefined;
-        const { requestId } = await submitVideo({ imageUrl, prompt, duration, endpoint, webhookUrl });
-        await addCost(ctx, klingCostUsd(endpoint, duration));
+        // 현장음을 켜면 Kling이 대사를 영어로 더빙하지 않도록 말소리를 막는다 (한국어 음성은 내레이션으로)
+        const finalPrompt = o.video_sound ? `${prompt} Natural ambient sound and light sound effects only, no speech, no singing.`.slice(0, 2500) : prompt;
+        const { requestId } = await submitVideo({ imageUrl, prompt: finalPrompt, duration, endpoint, webhookUrl, generateAudio: Boolean(o.video_sound) });
+        await addCost(ctx, klingCostUsd(endpoint, duration, Boolean(o.video_sound)));
         await ctx.update({
           provider_task_ids: { clip: requestId },
           output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), fal_request_ids: [requestId], queue_position: null, eta_seconds: null, notice: "Kling에 제출했어요. 5초 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요." },
@@ -238,10 +246,11 @@ export const practicePipeline: Pipeline = {
       try {
         const clip = await fetchAssetFile(o.clip_asset_id, tmp, "clip.mp4");
         const norm = path.join(tmp, "norm.mp4");
-        await normalizeClip(clip, norm, size, duration, { fadeIn: false });
-        // 원본 오디오(한국어 음성) 보존: 정규화 영상 + 원본 오디오
+        await normalizeClip(clip, norm, size, duration, { fadeIn: false, keepAudio: true });
+        // 원본 소리(있으면) + 한국어 내레이션(만들어 두었으면)
+        const narration = o.narration_asset_id ? await fetchAssetFile(o.narration_asset_id, tmp, "narration.mp3") : undefined;
         const final = path.join(tmp, "final.mp4");
-        await finalize(norm, final, { cues: o.cues ?? [], size, audio: clip, totalSeconds: duration, fadeOut: false, style: normalizeStyle(o.subtitle_style) });
+        await finalize(norm, final, { cues: o.cues ?? [], size, totalSeconds: duration, fadeOut: false, style: normalizeStyle(o.subtitle_style), keepSourceAudio: true, narration });
         const version = (o.version ?? 0) + 1;
         const data = await fs.readFile(final);
         const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `실습영상_자막_v${version}.mp4`, final: true, version, server: true }, deleteAfter: deleteAfter() });
@@ -295,7 +304,9 @@ export const practicePipeline: Pipeline = {
         if (dialogue && [...dialogue].length > DIALOGUE_MAX[duration]) throw new ResumeInputError(`대사는 ${duration}초 영상에서 ${DIALOGUE_MAX[duration]}자 이하로 적어 주세요.`);
         const plan: PracticePlan = { ...o.plan, dialogue_ko: dialogue };
         const pro = data.quality === "pro";
-        await ctx.update({ output: { plan, video_prompt: assembleKlingPrompt({ prompt_en: vp.prompt, dialogue_ko: dialogue, negative: plan.negative }), video_endpoint: pro ? FAL_VIDEO_ENDPOINT_PRO : FAL_VIDEO_ENDPOINT_DEFAULT, cues: o.cues?.length ? o.cues : defaultCues(dialogue, duration) } });
+        const sound = data.sound === true;
+        const endpoint = sound ? (pro ? FAL_I2V_AUDIO_ENDPOINT_PRO : FAL_I2V_AUDIO_ENDPOINT_DEFAULT) : pro ? FAL_VIDEO_ENDPOINT_PRO : FAL_VIDEO_ENDPOINT_DEFAULT;
+        await ctx.update({ output: { plan, video_prompt: assembleKlingPrompt({ prompt_en: vp.prompt, dialogue_ko: dialogue, negative: plan.negative }), video_endpoint: endpoint, video_sound: sound, cues: o.cues?.length ? o.cues : defaultCues(dialogue, duration) } });
         return { next: "video:start" };
       }
     }
@@ -307,6 +318,36 @@ export const practicePipeline: Pipeline = {
         const cs = normalizeCues(data.cues, duration);
         if ("error" in cs) throw new ResumeInputError(cs.error);
         await ctx.update({ output: { cues: cs.cues } });
+        return { next: "await:subtitle" };
+      }
+      if (action === "narrate") {
+        // 한국어 내레이션: 자막 문장을 시작 시각에 맞춰 읽어 mp3 자산으로 저장 (브라우저·서버 합성 모두 사용)
+        const cs = normalizeCues(data.cues ?? o.cues, duration);
+        if ("error" in cs) throw new ResumeInputError(cs.error);
+        const voice = isTtsVoice(data.voice) ? data.voice : undefined;
+        const tmp = await tmpDir();
+        try {
+          const parts: { file: string; start: number; maxSeconds: number }[] = [];
+          let chars = 0;
+          for (let i = 0; i < cs.cues.length; i++) {
+            const c = cs.cues[i];
+            const text = c.text.trim();
+            if (!text || c.end <= c.start) continue;
+            const file = path.join(tmp, `tts_${i}.mp3`);
+            await fs.writeFile(file, await synthesizeSpeech({ text, voice }));
+            parts.push({ file, start: c.start, maxSeconds: c.end - c.start });
+            chars += text.length;
+          }
+          if (!parts.length) throw new ResumeInputError("읽을 자막이 없어요. 자막을 먼저 적어 주세요.");
+          const outFile = path.join(tmp, "narration.mp3");
+          await buildNarrationTrack(parts, duration, outFile);
+          const mp3 = await fs.readFile(outFile);
+          const asset = await ctx.saveAsset({ kind: "audio", ext: "mp3", data: mp3, mime: "audio/mpeg", meta: { filename: "실습_내레이션.mp3", narration: true, intermediate: true }, deleteAfter: deleteAfter() });
+          await addCost(ctx, ttsCostUsd(chars));
+          await ctx.update({ output: { cues: cs.cues, narration_asset_id: asset.id, narration_voice: voice ?? "nova" } });
+        } finally {
+          await cleanup(tmp);
+        }
         return { next: "await:subtitle" };
       }
       if (action === "burn_server") {

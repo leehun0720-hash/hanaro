@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
+import { getBranding } from "@/lib/branding";
 
 /** 첫 화면·약관 페이지 공용 푸터 — 개인정보처리방침·이용약관 링크 (구글 OAuth 브랜딩 요건) */
-export function LegalFooter() {
+export async function LegalFooter() {
+  const b = await getBranding();
   return (
     <footer className="border-t border-line bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-8 text-sm text-muted">
@@ -11,7 +13,7 @@ export function LegalFooter() {
         <p className="flex flex-wrap items-center gap-3">
           <Link href="/privacy" className="hover:underline">개인정보처리방침</Link>
           <Link href="/terms" className="hover:underline">이용약관</Link>
-          <span>© {new Date().getFullYear()} 하나로AI스튜디오</span>
+          <span>© {new Date().getFullYear()} {b.owner}. All rights reserved.</span>
         </p>
       </div>
     </footer>

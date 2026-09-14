@@ -253,7 +253,7 @@ export async function failJob(job: Job, message: string) {
 
 /** 사용자의 진행 중 작업(queued·running·waiting) 목록 */
 export async function listActiveJobs(userId: string): Promise<Job[]> {
-  const { data } = await adminClient().from("jobs").select("*").eq("user_id", userId).in("status", ["queued", "running", "waiting"]).order("created_at", { ascending: true }).limit(20);
+  const { data } = await adminClient().from("jobs").select("*").eq("user_id", userId).is("deleted_at", null).in("status", ["queued", "running", "waiting"]).order("created_at", { ascending: true }).limit(20);
   return (data ?? []) as Job[];
 }
 
@@ -262,7 +262,7 @@ export async function listActiveJobs(userId: string): Promise<Job[]> {
  */
 export async function latestJobForRoom(userId: string, type: JobType): Promise<{ job: Job; assets: import("@/lib/types").Asset[] } | null> {
   const db = adminClient();
-  const { data } = await db.from("jobs").select("*").eq("user_id", userId).eq("type", type).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  const { data } = await db.from("jobs").select("*").eq("user_id", userId).eq("type", type).is("deleted_at", null).order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (!data) return null;
   const job = data as Job;
   const active = job.status === "queued" || job.status === "running" || job.status === "waiting";

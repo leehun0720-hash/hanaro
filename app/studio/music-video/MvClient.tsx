@@ -3,6 +3,7 @@ import { useState } from "react";
 import { JobRunner, type JobResult } from "@/components/JobRunner";
 import { MV_GENRES, type MvGenre, type MvOutput } from "@/lib/prompts/mv";
 import type { Project } from "@/lib/types";
+import { RefPhotoPicker } from "@/components/RefPhotoPicker";
 
 const STEPS = {
   plan: "Claude가 가사와 장면 4개를 쓰는 중",
@@ -11,13 +12,14 @@ const STEPS = {
   compose: "장면을 잇고 음원·자막을 입히는 중 (ffmpeg)",
 };
 
-export function MvClient({ projects, preselect, orgName, credits, initial }: { projects: Project[]; preselect: string | null; orgName: string | null; credits: number; initial?: JobResult | null }) {
+export function MvClient({ projects, photoUrls, preselect, orgName, credits, initial }: { projects: Project[]; photoUrls: Record<string, string>; preselect: string | null; orgName: string | null; credits: number; initial?: JobResult | null }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? "");
   const [genre, setGenre] = useState<MvGenre>("trot");
   const [org, setOrg] = useState(orgName ?? "");
   const [specialty, setSpecialty] = useState("");
   const [region, setRegion] = useState("");
   const [extra, setExtra] = useState("");
+  const [refPhoto, setRefPhoto] = useState<string | null>(null); // 기본: 참조 안 함
 
   return (
     <div className="space-y-6">
@@ -44,8 +46,15 @@ export function MvClient({ projects, preselect, orgName, credits, initial }: { p
             <option value="">(선택 안 함 — 조합 자체 응원송)</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.what}</option>)}
           </select>
-          <p className="hint">선택하면 소재(행사·상품)가 가사에 살짝 들어가고, 프로젝트 사진이 장면 참조로 쓰입니다.</p>
+          <p className="hint">선택하면 소재(행사·상품)가 가사에 살짝 들어갑니다.</p>
         </div>
+        {projectId && (
+          <div>
+            <label className="label">첫 장면 참조 사진 (선택)</label>
+            <RefPhotoPicker photos={projects.find((p) => p.id === projectId)?.photos ?? []} urls={photoUrls} value={refPhoto} onChange={setRefPhoto} />
+            <p className="hint">고른 사진 1장만 장면의 첫 프레임으로 씁니다. 고르지 않으면 가사 장면만으로 촬영합니다.</p>
+          </div>
+        )}
         <div><label className="label">담고 싶은 이야기 (선택)</label><textarea value={extra} onChange={(e) => setExtra(e.target.value)} className="input min-h-20" maxLength={1000} placeholder="예) 60년 역사, 조합원 3천 명, 새벽 경매, 로컬푸드 직매장" /></div>
       </div>
 
@@ -59,7 +68,7 @@ export function MvClient({ projects, preselect, orgName, credits, initial }: { p
         buildInput={() => {
           if (!org.trim()) return { error: "조합명을 입력하세요." };
           if (!specialty.trim()) return { error: "지역 특산물을 입력하세요." };
-          return { genre, orgName: org.trim(), specialty: specialty.trim(), region: region || undefined, extra: extra || undefined };
+          return { genre, orgName: org.trim(), specialty: specialty.trim(), region: region || undefined, extra: extra || undefined, refPhoto: projectId ? refPhoto : null };
         }}
         renderResult={({ job, assets }) => {
           const plan = job.output.plan as MvOutput | undefined;

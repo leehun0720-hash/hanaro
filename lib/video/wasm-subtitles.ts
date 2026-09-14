@@ -50,6 +50,10 @@ export type BurnOptions = {
   /** 영상 해상도 (ASS PlayRes). 모르면 1920×1080 */
   size?: { w: number; h: number };
   bgm?: { file: Blob; volume: number } | null; // volume 0~1
+  /** 한국어 내레이션 mp3 (서버가 만든 트랙) */
+  narration?: { file: Blob; volume?: number } | null;
+  /** 원본 영상 소리(Kling 현장음) 볼륨 0~1. 원본에 소리가 없으면 무시 */
+  sourceVolume?: number;
   onProgress?: (ratio: number, phase: string) => void;
 };
 
@@ -68,22 +72,44 @@ export async function burnSubtitles(opts: BurnOptions): Promise<Blob> {
   await ff.writeFile("in.mp4", await fetchFile(opts.video));
   await ff.writeFile("sub.ass", new TextEncoder().encode(buildAss(opts.cues, style, size)));
   if (opts.bgm) await ff.writeFile("bgm.mp3", await fetchFile(opts.bgm.file));
+  if (opts.narration) await ff.writeFile("narr.mp3", await fetchFile(opts.narration.file));
 
   const onP = ({ progress }: { progress: number }) => opts.onProgress?.(Math.max(0, Math.min(1, progress)), "인코딩 중");
   ff.on("progress", onP);
   try {
-    const args = ["-y", "-i", "in.mp4"];
-    if (opts.bgm) {
-      const vol = Math.max(0, Math.min(1, opts.bgm.volume));
-      args.push("-stream_loop", "-1", "-i", "bgm.mp3");
-      args.push("-filter_complex", `[0:v]ass=sub.ass:fontsdir=/fonts[v];[1:a]volume=${vol.toFixed(2)}[b];[0:a][b]amix=inputs=2:duration=first:dropout_transition=2[a]`, "-map", "[v]", "-map", "[a]", "-shortest");
-    } else {
-      args.push("-vf", "ass=sub.ass:fontsdir=/fonts", "-map", "0:v:0", "-map", "0:a?", "-c:a", "copy");
-    }
-    args.push("-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
-    if (opts.bgm) args.push("-c:a", "aac", "-b:a", "160k");
-    args.push("out.mp4");
-    const code = await ff.exec(args);
+    const clamp = (v: number | undefined, d: number) => Math.max(0, Math.min(1, v ?? d)).toFixed(2);
+    const mixing = Boolean(opts.bgm || opts.narration);
+    /**
+     * 오디오 믹스 명령. withSource=true면 원본 소리도 섞는다 — Kling turbo 영상처럼 원본에 소리가 없으면
+     * [0:a]가 없어 실패하므로, 실패 시 withSource=false로 한 번 더 시도한다.
+     */
+    const build = (withSource: boolean) => {
+      const args = ["-y", "-i", "in.mp4"];
+      const ins: string[] = [];
+      let idx = 1;
+      if (opts.bgm) {
+        args.push("-stream_loop", "-1", "-i", "bgm.mp3");
+        ins.push(`[${idx++}:a]volume=${clamp(opts.bgm.volume, 0.25)}[b]`);
+      }
+      if (opts.narration) {
+        args.push("-i", "narr.mp3");
+        ins.push(`[${idx++}:a]volume=${clamp(opts.narration.volume, 1)}[n]`);
+      }
+      if (mixing) {
+        const labels = [...(withSource ? ["[s]"] : []), ...(opts.bgm ? ["[b]"] : []), ...(opts.narration ? ["[n]"] : [])];
+        const src = withSource ? `[0:a]volume=${clamp(opts.sourceVolume, opts.narration ? 0.45 : 1)}[s];` : "";
+        const mix = labels.length === 1 ? `${labels[0]}anull[a]` : `${labels.join("")}amix=inputs=${labels.length}:duration=first:normalize=0:dropout_transition=2[a]`;
+        args.push("-filter_complex", `[0:v]ass=sub.ass:fontsdir=/fonts[v];${src}${ins.join(";")};${mix}`, "-map", "[v]", "-map", "[a]", "-shortest");
+      } else {
+        args.push("-vf", "ass=sub.ass:fontsdir=/fonts", "-map", "0:v:0", "-map", "0:a?", "-c:a", "copy");
+      }
+      args.push("-c:v", "libx264", "-preset", "ultrafast", "-crf", "23", "-pix_fmt", "yuv420p", "-movflags", "+faststart");
+      if (mixing) args.push("-c:a", "aac", "-b:a", "160k");
+      args.push("out.mp4");
+      return args;
+    };
+    let code = await ff.exec(build(true));
+    if (code !== 0 && mixing) code = await ff.exec(build(false));
     if (code !== 0) throw new Error(`ffmpeg 종료 코드 ${code}`);
     const data = (await ff.readFile("out.mp4")) as Uint8Array;
     if (!data.length) throw new Error("결과 파일이 비어 있어요.");
@@ -91,7 +117,7 @@ export async function burnSubtitles(opts: BurnOptions): Promise<Blob> {
     return new Blob([new Uint8Array(data)], { type: "video/mp4" });
   } finally {
     ff.off("progress", onP);
-    for (const f of ["in.mp4", "sub.ass", "out.mp4", "bgm.mp3"]) await ff.deleteFile(f).catch(() => {});
+    for (const f of ["in.mp4", "sub.ass", "out.mp4", "bgm.mp3", "narr.mp3"]) await ff.deleteFile(f).catch(() => {});
   }
 }
 

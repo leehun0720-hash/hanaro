@@ -3,17 +3,18 @@ import type { ReactNode } from "react";
 import { getProfile } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LegalFooter } from "@/components/LegalFooter";
+import { getBranding, type Branding } from "@/lib/branding";
 
-export const metadata = { title: "서비스 이용약관", description: "하나로AI스튜디오 이용 조건 — 절대 수칙, 생성물의 권리와 책임, ro 결제·환불 기준.", alternates: { canonical: "/terms" } };
+export const metadata = { title: "서비스 이용약관", description: "{b.name} 이용 조건 — 절대 수칙, 생성물의 권리와 책임, ro 결제·환불 기준.", alternates: { canonical: "/terms" } };
 export const dynamic = "force-dynamic";
 
 const UPDATED = "2026-09-14";
 const CONTACT = "leehun0720@gmail.com";
 
-const sections: { h: string; body: ReactNode }[] = [
+const sections = (b: Branding): { h: string; body: ReactNode }[] => [
   {
     h: "제1조 (목적)",
-    body: <p>이 약관은 하나로AI스튜디오(이하 &ldquo;서비스&rdquo;)의 이용 조건과 절차, 이용자와 운영자의 권리·의무를 정합니다. 서비스는 농축협 디지털 프로젝트과정의 실습 도구로, 강의 수강생과 승인된 이용자에게 제공됩니다.</p>,
+    body: <p>이 약관은 {b.name}(이하 &ldquo;서비스&rdquo;)의 이용 조건과 절차, 이용자와 운영자의 권리·의무를 정합니다. 서비스는 농축협 디지털 프로젝트과정의 실습 도구로, 강의 수강생과 승인된 이용자에게 제공됩니다.</p>,
   },
   {
     h: "제2조 (서비스 내용)",
@@ -87,7 +88,7 @@ const sections: { h: string; body: ReactNode }[] = [
 ];
 
 export default async function TermsPage() {
-  const profile = await getProfile();
+  const [profile, b] = await Promise.all([getProfile(), getBranding()]);
   return (
     <>
       <SiteHeader profile={profile} />
@@ -96,7 +97,7 @@ export default async function TermsPage() {
         <h1 className="display mt-2 text-4xl font-bold">서비스 이용약관</h1>
         <p className="mt-3 text-sm text-muted">시행일: {UPDATED}</p>
         <div className="mt-10 space-y-8 text-sm leading-relaxed">
-          {sections.map((s) => (
+          {sections(b).map((s) => (
             <section key={s.h}>
               <h2 className="mb-2 text-lg font-bold">{s.h}</h2>
               {s.body}

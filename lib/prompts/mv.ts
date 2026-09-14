@@ -18,6 +18,8 @@ export const mvInputSchema = z.object({
   specialty: z.string().trim().min(1).max(60),
   region: z.string().trim().max(60).optional(),
   extra: z.string().trim().max(1000).optional(),
+  /** 사용자가 고른 프로젝트 사진 경로 (없으면 참조 없이 text-to-video) */
+  refPhoto: z.string().trim().min(1).nullable().optional(),
 });
 export type MvInput = z.infer<typeof mvInputSchema>;
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { adminClient } from "@/lib/supabase/admin";
 import { getPackages } from "@/lib/packages";
+import { getBranding } from "@/lib/branding";
 
 /** 충전 주문 생성: 서버가 금액을 확정하고 pending 구매 행을 만든다 (클라이언트 금액 신뢰 안 함) */
 export async function POST(request: Request) {
@@ -24,5 +25,6 @@ export async function POST(request: Request) {
     .insert({ user_id: user.id, package_id: pkg.id, order_id: orderId, bananas: pkg.bananas, amount: pkg.price_krw, status: "pending" });
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ orderId, amount: pkg.price_krw, orderName: `하나로AI스튜디오 ro ${pkg.bananas.toLocaleString()}개 (${pkg.name})` });
+  const brand = await getBranding();
+  return NextResponse.json({ orderId, amount: pkg.price_krw, orderName: `${brand.name} ro ${pkg.bananas.toLocaleString()}개 (${pkg.name})` });
 }

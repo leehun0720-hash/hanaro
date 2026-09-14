@@ -17,10 +17,19 @@ export const FAL_VIDEO_ENDPOINT_DEFAULT = process.env.FAL_VIDEO_ENDPOINT_DEFAULT
 export const FAL_VIDEO_ENDPOINT_PRO = process.env.FAL_VIDEO_ENDPOINT_PRO ?? "fal-ai/kling-video/v3/turbo/pro/image-to-video";
 /** 텍스트→영상 (홍보영상·뮤직비디오 클립, 참조 사진 없을 때). aspect_ratio 16:9·9:16·1:1, duration 3~15, generate_audio, negative_prompt */
 export const FAL_T2V_ENDPOINT_DEFAULT = process.env.FAL_T2V_ENDPOINT_DEFAULT ?? "fal-ai/kling-video/v3/turbo/standard/text-to-video";
+/**
+ * 네이티브 오디오(현장음·효과음)가 되는 이미지→영상은 turbo가 아닌 v3 standard/pro 엔드포인트다.
+ * 파라미터가 다르다: start_image_url · generate_audio · negative_prompt. 음성은 중국어·영어만 (한국어는 영어로 번역됨) → 한국어 음성은 TTS로.
+ */
+export const FAL_I2V_AUDIO_ENDPOINT_DEFAULT = process.env.FAL_I2V_AUDIO_ENDPOINT_DEFAULT ?? "fal-ai/kling-video/v3/standard/image-to-video";
+export const FAL_I2V_AUDIO_ENDPOINT_PRO = process.env.FAL_I2V_AUDIO_ENDPOINT_PRO ?? "fal-ai/kling-video/v3/pro/image-to-video";
 
-/** 초당 단가(USD) — SPEC §15. 변동 가능, 관리자 비용 표시용 */
-export function klingCostUsd(endpoint: string, seconds: number): number {
-  const perSec = endpoint.includes("/pro/") ? 0.14 : 0.112;
+export const isTurboEndpoint = (endpoint: string) => endpoint.includes("/turbo/");
+
+/** 초당 단가(USD) — fal 가격표(2026-09). 변동 가능, 관리자 비용 표시용 */
+export function klingCostUsd(endpoint: string, seconds: number, audio = false): number {
+  const pro = endpoint.includes("/pro/");
+  const perSec = isTurboEndpoint(endpoint) ? (pro ? 0.14 : 0.112) : pro ? (audio ? 0.168 : 0.112) : audio ? 0.126 : 0.084;
   return Math.round(perSec * seconds * 10000) / 10000;
 }
 
@@ -87,8 +96,14 @@ export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId:
   const endpoint = input.endpoint ?? (input.imageUrl ? FAL_VIDEO_ENDPOINT_DEFAULT : FAL_T2V_ENDPOINT_DEFAULT);
   const duration = String(Math.max(3, Math.min(15, Math.round(input.duration))));
   const body: Record<string, unknown> = { prompt: input.prompt.slice(0, 2500), duration };
-  if (input.imageUrl) body.image_url = input.imageUrl;
-  else {
+  if (input.imageUrl) {
+    if (isTurboEndpoint(endpoint)) body.image_url = input.imageUrl; // turbo: 오디오·부정 조건 없음
+    else {
+      body.start_image_url = input.imageUrl;
+      body.generate_audio = input.generateAudio ?? false;
+      if (input.negativePrompt) body.negative_prompt = input.negativePrompt;
+    }
+  } else {
     body.aspect_ratio = input.aspectRatio ?? "16:9";
     body.generate_audio = input.generateAudio ?? false;
     if (input.negativePrompt) body.negative_prompt = input.negativePrompt;

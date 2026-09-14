@@ -52,6 +52,8 @@ type Props = {
   duration: number;
   ratio: "16:9" | "9:16";
   nickname: string;
+  /** 서버가 만든 한국어 내레이션 mp3 (/api/assets/{id}) */
+  narrationUrl?: string | null;
   /** 브라우저 처리 실패 시 서버 대체 합성 (현재 스타일 전달) */
   onServerFallback: (style: SubtitleStyle) => Promise<void>;
   /** 완성본을 갤러리에 보관(선택) */
@@ -62,10 +64,11 @@ type Props = {
 };
 
 /** ⑤ 자막 삽입 + ⑥ 다운로드 (브라우저 ffmpeg.wasm) */
-export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, nickname, onServerFallback, onKeep, onFinish, busy }: Props) {
+export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, nickname, narrationUrl, onServerFallback, onKeep, onFinish, busy }: Props) {
   const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_STYLE);
   const [bgm, setBgm] = useState<File | null>(null);
   const [bgmVol, setBgmVol] = useState(0.25);
+  const [useNarration, setUseNarration] = useState(true);
   const [phase, setPhase] = useState<"idle" | "loading" | "encoding" | "done" | "error">("idle");
   const [progress, setProgress] = useState(0);
   const [log, setLog] = useState<string>("");
@@ -87,7 +90,12 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
       const r = await fetch(videoUrl, { cache: "no-store" });
       if (!r.ok) throw new Error("원본 영상을 불러오지 못했어요.");
       const video = await r.blob();
-      const blob = await burnSubtitles({ video, cues, style, size, bgm: bgm ? { file: bgm, volume: bgmVol } : null, onProgress: (p) => setProgress(p) });
+      let narration: { file: Blob } | null = null;
+      if (narrationUrl && useNarration) {
+        const n = await fetch(narrationUrl, { cache: "no-store" });
+        if (n.ok) narration = { file: await n.blob() };
+      }
+      const blob = await burnSubtitles({ video, cues, style, size, bgm: bgm ? { file: bgm, volume: bgmVol } : null, narration, onProgress: (p) => setProgress(p) });
       outBlob.current = blob;
       if (outUrl) URL.revokeObjectURL(outUrl);
       setOutUrl(URL.createObjectURL(blob));
@@ -147,8 +155,14 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
+        {narrationUrl && (
+          <div className="sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={useNarration} onChange={(e) => setUseNarration(e.target.checked)} /> 한국어 내레이션 포함 (자막을 읽어주는 AI 음성)</label>
+            <audio src={narrationUrl} controls className="mt-1 h-8 w-full" />
+          </div>
+        )}
         <div>
-          <label className="label">배경음악 (선택, mp3) — 영상 속 한국어 음성과 섞입니다</label>
+          <label className="label">배경음악 (선택, mp3) — 영상 소리·내레이션과 섞입니다</label>
           <input type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/x-m4a,audio/mp4" className="input" onChange={(e) => setBgm(e.target.files?.[0] ?? null)} />
         </div>
         {bgm && (

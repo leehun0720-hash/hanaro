@@ -21,7 +21,7 @@ export type ImageQuality = "medium" | "high" | "xhigh";
 
 let _client: { key: string; c: OpenAI } | null = null;
 /** 관리자 화면 키(DB) 우선, 없으면 환경변수. 키가 바뀌면 클라이언트를 다시 만든다 */
-async function client(): Promise<OpenAI> {
+export async function openaiClient(): Promise<OpenAI> {
   const key = await requireSecret("OPENAI_API_KEY");
   if (!_client || _client.key !== key) _client = { key, c: new OpenAI({ apiKey: key }) };
   return _client.c;
@@ -30,7 +30,7 @@ async function client(): Promise<OpenAI> {
 export async function generateImage(opts: { prompt: string; size: ImageSize; quality?: ImageQuality }): Promise<Buffer> {
   const res = await withRetry(
     async () =>
-      (await client()).images.generate({
+      (await openaiClient()).images.generate({
         model: IMAGE_MODEL,
         prompt: opts.prompt,
         size: opts.size,
@@ -55,7 +55,7 @@ export async function editImage(opts: {
   const files = await Promise.all(opts.references.map((r) => toFile(r.data, r.name, { type: r.mime })));
   const res = await withRetry(
     async () =>
-      (await client()).images.edit({
+      (await openaiClient()).images.edit({
         model: IMAGE_MODEL,
         image: files,
         prompt: opts.prompt,

@@ -1,4 +1,5 @@
 "use client";
+import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -26,6 +27,9 @@ type Out = {
   cues?: Cue[];
   final_asset_id?: string;
   version?: number;
+  video_sound?: boolean;
+  narration_asset_id?: string;
+  narration_voice?: string;
   queue_position?: number | null;
   eta_seconds?: number | null;
   notice?: string | null;
@@ -263,6 +267,7 @@ function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; bus
   const [dialogueKo, setDialogueKo] = useState(o.plan?.dialogue_ko ?? o.scene?.dialogueKo ?? "");
   const [prompt, setPrompt] = useState(o.plan?.prompt_en ?? "");
   const [quality, setQuality] = useState<"standard" | "pro">("standard");
+  const [sound, setSound] = useState(false);
   const failed = Boolean(o.prompt_error || !o.plan?.prompt_en);
   return (
     <div className="card space-y-4">
@@ -296,10 +301,16 @@ function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; bus
             <p className="hint">화면 속 글자 금지 조건과 대사 문장은 서버가 자동으로 붙여요. 길이 {duration}초.</p>
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={quality === "pro"} onChange={(e) => setQuality(e.target.checked ? "pro" : "standard")} /> 고품질 1080p (Turbo Pro, 우수작 재생성용)
-            </label>
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => resume("start", { videoPrompt: prompt, dialogueKo: dialogueKo || "", quality })}>④ Kling 3.0으로 영상 만들기 (영상 1회) →</button>
+            <div className="space-y-1.5 text-sm">
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={quality === "pro"} onChange={(e) => setQuality(e.target.checked ? "pro" : "standard")} /> 고품질 1080p (Pro, 우수작 재생성용)
+              </label>
+              <label className="flex items-center gap-2">
+                <input type="checkbox" checked={sound} onChange={(e) => setSound(e.target.checked)} /> 현장음·효과음 켜기 (Kling 오디오 · 조금 느리고 비용 ↑)
+              </label>
+              <p className="hint">한국어 음성은 Kling이 지원하지 않아요. 대사·자막은 ⑤ 단계의 <b>한국어 내레이션</b>으로 넣을 수 있습니다.</p>
+            </div>
+            <button type="button" className="btn-primary" disabled={busy} onClick={() => resume("start", { videoPrompt: prompt, dialogueKo: dialogueKo || "", quality, sound })}>④ Kling 3.0으로 영상 만들기 (영상 1회) →</button>
           </div>
         </>
       )}
@@ -314,8 +325,10 @@ function SubtitlePanel({ r, resume, busy, userId, nickname, ratio, cues, setCues
   const final = r.assets.find((a) => a.id === o.final_asset_id);
   const [prompt, setPrompt] = useState(o.video_prompt ?? "");
   const [keptPath, setKeptPath] = useState<string | null>(null);
+  const [voice, setVoice] = useState<TtsVoice>((o.narration_voice as TtsVoice) ?? "nova");
   // 로컬 초안이 비어 있으면 서버에 저장된 자막(대사 기본값) 사용
   const effective = cues.length ? cues : (o.cues ?? []);
+  const narration = r.assets.find((a) => a.id === o.narration_asset_id);
 
   return (
     <div className="card space-y-5">
@@ -326,6 +339,20 @@ function SubtitlePanel({ r, resume, busy, userId, nickname, ratio, cues, setCues
       <p className="text-sm text-muted">▼ Kling이 만든 <b>자막 없는 원본</b>입니다. 아래에서 자막을 적고 ‘자막 입히기’를 누르면 결과 영상이 그 아래에 나타납니다.</p>
       {clip && <video key={clip.id} src={`/api/assets/${clip.id}`} controls playsInline className={`w-full rounded-lg border border-line bg-black ${ratio === "9:16" ? "max-h-[60vh] mx-auto" : ""}`} />}
       {o.plan?.dialogue_ko && <p className="text-sm"><span className="text-muted">대사:</span> {o.plan.dialogue_ko}</p>}
+      <div className="rounded-lg border border-line p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="text-sm">
+            <p className="font-medium">한국어 내레이션 (AI 음성이 자막을 읽어줘요)</p>
+            <p className="hint">아래 자막을 먼저 적은 뒤 만드세요. 자막을 고치면 다시 만들어야 합니다. {narration ? "✓ 준비됨 — 자막 입힐 때 자동으로 섞입니다." : ""}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <select value={voice} onChange={(e) => setVoice(e.target.value as TtsVoice)} className="input w-auto py-1.5 text-xs">
+              {(Object.keys(TTS_VOICES) as TtsVoice[]).map((v) => <option key={v} value={v}>{TTS_VOICES[v]}</option>)}
+            </select>
+            <button type="button" className="btn-secondary text-xs" disabled={busy || !effective.some((c) => c.text.trim() && c.end > c.start)} onClick={() => resume("narrate", { cues: effective, voice })}>{narration ? "내레이션 다시 만들기" : "내레이션 만들기"}</button>
+          </div>
+        </div>
+      </div>
       {final && (
         <div className="rounded-lg border border-brand/30 bg-brand-soft/40 p-3 text-sm">
           서버에서 합성한 자막 영상이 준비됐어요. <a href={`/api/assets/${final.id}?download=1`} className="font-semibold underline">다운로드</a>
@@ -339,6 +366,7 @@ function SubtitlePanel({ r, resume, busy, userId, nickname, ratio, cues, setCues
           duration={duration}
           ratio={ratio}
           nickname={nickname}
+          narrationUrl={narration ? `/api/assets/${narration.id}` : null}
           busy={busy}
           onServerFallback={(style) => resume("burn_server", { cues: effective, style })}
           onKeep={async (blob) => {

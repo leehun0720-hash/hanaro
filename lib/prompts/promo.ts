@@ -4,7 +4,10 @@ import type { Project } from "@/lib/types";
 
 export const promoInputSchema = z.object({
   ratio: z.enum(["16:9", "9:16"]).default("16:9"),
-  usePhotos: z.coerce.boolean().default(true),
+  /** 사용자가 고른 프로젝트 사진 경로 (없으면 참조 없이 text-to-video) */
+  refPhoto: z.string().trim().min(1).nullable().optional(),
+  /** 소리: 현장음(Kling 네이티브 오디오) · 한국어 내레이션(자막 읽어주기, OpenAI TTS) */
+  sound: z.object({ ambient: z.boolean().default(true), narration: z.boolean().default(true), voice: z.string().optional() }).default({ ambient: true, narration: true }),
   mood: z.string().trim().max(100).optional(),
   extra: z.string().trim().max(1000).optional(),
 });

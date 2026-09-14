@@ -14,7 +14,7 @@ describe("promo", () => {
     expect(PROMO_CUTS.reduce((a, c) => a + c.seconds, 0)).toBe(30);
   });
   it("프롬프트에 비율·CTA가 들어간다", () => {
-    const p = promoUserPrompt({ ratio: "9:16", usePhotos: true }, project, "안성농협");
+    const p = promoUserPrompt({ ratio: "9:16", sound: { ambient: true, narration: true } }, project, "안성농협");
     expect(p).toContain("9:16");
     expect(p).toContain("031-000-0000 전화 예약");
   });

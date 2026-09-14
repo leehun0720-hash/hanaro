@@ -78,6 +78,7 @@ export type JobType = "document" | "newsletter" | "cardnews" | "promo_video" | "
 export type JobStatus = "queued" | "running" | "waiting" | "succeeded" | "failed";
 
 export type Job = {
+  deleted_at?: string | null;
   id: string;
   user_id: string;
   project_id: string | null;

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { isCronAuthorized } from "@/lib/safe-compare";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { availableFilters, cleanup, ffmpegPath, finalize, run, SIZE_169, tmpDir } from "@/lib/video/ffmpeg";
+import { availableFilters, buildNarrationTrack, cleanup, ffmpegPath, finalize, hasAudioStream, normalizeClip, run, SIZE_169, tmpDir } from "@/lib/video/ffmpeg";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -30,6 +30,21 @@ export async function GET(request: Request) {
     await finalize(clip, out, { cues: [{ start: 0, end: 1, text: "한글 자막 진단 테스트" }], size: SIZE_169, totalSeconds: 1, fadeOut: false, style: { position: "bottom", fontSize: 64, fontId: "blackhan", themeId: "outline-yellow" } });
     const st = await fs.stat(out);
     report.subtitle = { ok: true, bytes: st.size };
+
+    // 오디오 경로: 무음 트랙 부여 → 내레이션(사인파) 배치 → 믹스
+    try {
+      const norm = path.join(tmp, "norm.mp4");
+      await normalizeClip(clip, norm, { w: 640, h: 360 }, 1, { keepAudio: true });
+      const tone = path.join(tmp, "tone.mp3");
+      await run(["-f", "lavfi", "-i", "sine=frequency=660:duration=1", "-c:a", "libmp3lame", tone]);
+      const narr = path.join(tmp, "narr.mp3");
+      await buildNarrationTrack([{ file: tone, start: 0, maxSeconds: 1 }], 1, narr);
+      const mixed = path.join(tmp, "mixed.mp4");
+      await finalize(norm, mixed, { cues: [], size: SIZE_169, totalSeconds: 1, keepSourceAudio: true, narration: narr });
+      report.audio = { ok: await hasAudioStream(mixed), bytes: (await fs.stat(mixed)).size };
+    } catch (e) {
+      report.audio = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
   } catch (e) {
     report.subtitle = { ok: false, error: e instanceof Error ? e.message : String(e) };
   } finally {

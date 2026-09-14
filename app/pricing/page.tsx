@@ -5,18 +5,19 @@ import { BANANA_KRW, COST_DETAIL, COST_LABEL, DEFAULT_COSTS } from "@/lib/credit
 import { getPackages, perBanana, discountPct } from "@/lib/packages";
 import { SiteHeader } from "@/components/SiteHeader";
 import type { PlanSettings } from "@/lib/types";
+import { getBranding } from "@/lib/branding";
 
 export const metadata = { title: "요금 안내", description: "1 ro = 100원. 문서·뉴스레터·카드뉴스·홍보영상·뮤직비디오 산출물별 ro 차감량과 충전 패키지, 월 정액 안내.", alternates: { canonical: "/pricing" } };
 export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
-  const [profile, packages] = await Promise.all([getProfile(), getPackages()]);
+  const [profile, packages, brand] = await Promise.all([getProfile(), getPackages(), getBranding()]);
   let plan: PlanSettings | null = null;
   if (supabaseConfigured()) {
     const { data } = await adminClient().from("plan_settings").select("*").eq("id", 1).single();
     plan = data as PlanSettings | null;
   }
-  const p = plan ?? { name: "하나로AI스튜디오 월 정액", price_krw: 99000, monthly_credits: 1300, credit_costs: DEFAULT_COSTS };
+  const p = plan ?? { name: `${brand.name} 월 정액`, price_krw: 99000, monthly_credits: 1300, credit_costs: DEFAULT_COSTS };
   const costs = { ...DEFAULT_COSTS, ...p.credit_costs };
   const cta = profile ? "/studio/billing" : "/signup";
 
