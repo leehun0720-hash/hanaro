@@ -21,6 +21,7 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
   const [ambient, setAmbient] = useState(true);
   const [narration, setNarration] = useState(true);
   const [voice, setVoice] = useState<TtsVoice>("nova");
+  const [quality, setQuality] = useState<"standard" | "pro">("standard");
   const [mood, setMood] = useState("");
   const [extra, setExtra] = useState("");
 
@@ -48,7 +49,14 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
         <div>
           <label className="label">첫 장면 참조 사진 (선택)</label>
           <RefPhotoPicker photos={project?.photos ?? []} urls={photoUrls} value={refPhoto} onChange={setRefPhoto} />
-          <p className="hint">고른 사진 1장만 첫 프레임으로 씁니다. 고르지 않으면 장면 설명만으로 촬영하며, 보관함의 이전 영상·이미지는 참조하지 않습니다. 동의 받은 사진만, 얼굴 클로즈업은 피하세요.</p>
+          <p className="hint">고른 사진은 <b>첫 컷(후크)의 첫 프레임</b>으로만 쓰이고, 화면 비율에 맞게 가운데를 잘라 사용합니다(세로 영상이면 세로 사진 권장). 나머지 컷은 장면 설명으로 촬영하며 보관함의 이전 자료는 참조하지 않습니다. 동의 받은 사진만, 얼굴 클로즈업은 피하세요.</p>
+        </div>
+        <div>
+          <label className="label">품질</label>
+          <div className="flex gap-2">
+            <button type="button" onClick={() => setQuality("standard")} className={`rounded-lg border px-3 py-2 text-sm ${quality === "standard" ? "border-brand bg-brand-soft" : "border-line"}`}>표준 720p (빠름)</button>
+            <button type="button" onClick={() => setQuality("pro")} className={`rounded-lg border px-3 py-2 text-sm ${quality === "pro" ? "border-brand bg-brand-soft" : "border-line"}`}>고품질 1080p Pro (느림 · 비용 약 1.3배)</button>
+          </div>
         </div>
         <div>
           <label className="label">소리</label>
@@ -76,7 +84,7 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
         credits={credits}
         steps={STEPS}
         buttonLabel="홍보영상 만들기"
-        buildInput={() => ({ ratio, refPhoto, sound: { ambient, narration, voice }, mood: mood || undefined, extra: extra || undefined })}
+        buildInput={() => ({ ratio, refPhoto, quality, sound: { ambient, narration, voice }, mood: mood || undefined, extra: extra || undefined })}
         renderResult={({ job, assets }) => {
           const plan = job.output.plan as PromoOutput | undefined;
           const final = assets.find((a) => a.kind === "video" && (a.meta as { final?: boolean }).final);

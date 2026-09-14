@@ -18,6 +18,7 @@ export const FAL_VIDEO_ENDPOINT_DEFAULT = process.env.FAL_VIDEO_ENDPOINT_DEFAULT
 export const FAL_VIDEO_ENDPOINT_PRO = process.env.FAL_VIDEO_ENDPOINT_PRO ?? "fal-ai/kling-video/v3/turbo/pro/image-to-video";
 /** 텍스트→영상 (홍보영상·뮤직비디오 클립, 참조 사진 없을 때). aspect_ratio 16:9·9:16·1:1, duration 3~15, generate_audio, negative_prompt */
 export const FAL_T2V_ENDPOINT_DEFAULT = process.env.FAL_T2V_ENDPOINT_DEFAULT ?? "fal-ai/kling-video/v3/turbo/standard/text-to-video";
+export const FAL_T2V_ENDPOINT_PRO = process.env.FAL_T2V_ENDPOINT_PRO ?? "fal-ai/kling-video/v3/turbo/pro/text-to-video";
 /**
  * 네이티브 오디오(현장음·효과음)가 되는 이미지→영상은 turbo가 아닌 v3 standard/pro 엔드포인트다.
  * 파라미터가 다르다: start_image_url · generate_audio · negative_prompt. 음성은 중국어·영어만 (한국어는 영어로 번역됨) → 한국어 음성은 TTS로.

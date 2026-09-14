@@ -36,7 +36,7 @@ export const musicVideoPipeline: Pipeline = {
     }
 
     if (step === "video:start") {
-      const refs = await referenceUrls(ctx, input.refPhoto);
+      const refs = await referenceUrls(ctx, input.refPhoto, "16:9");
       const started = await startClips(ctx, plan.scenes.map((s, i) => ({ key: KEYS[i], prompt: s.videoPrompt, seconds: MV_SCENE_SECONDS })), "16:9", refs);
       return { next: started ? "video:wait" : "video:start" };
     }

@@ -29,7 +29,7 @@ export const promoVideoPipeline: Pipeline = {
     if (!plan) throw new Error("3컷 설계가 없습니다. 다시 시도해 주세요.");
 
     if (step === "video:start") {
-      const refs = await referenceUrls(ctx, input.refPhoto);
+      const refs = await referenceUrls(ctx, input.refPhoto, input.ratio);
       const started = await startClips(
         ctx,
         [
@@ -39,7 +39,7 @@ export const promoVideoPipeline: Pipeline = {
         ],
         input.ratio,
         refs,
-        { ambient: input.sound.ambient },
+        { ambient: input.sound.ambient, pro: input.quality === "pro" },
       );
       return { next: started ? "video:wait" : "video:start" };
     }

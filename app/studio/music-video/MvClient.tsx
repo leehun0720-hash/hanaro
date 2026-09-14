@@ -52,7 +52,7 @@ export function MvClient({ projects, photoUrls, preselect, orgName, credits, ini
           <div>
             <label className="label">첫 장면 참조 사진 (선택)</label>
             <RefPhotoPicker photos={projects.find((p) => p.id === projectId)?.photos ?? []} urls={photoUrls} value={refPhoto} onChange={setRefPhoto} />
-            <p className="hint">고른 사진 1장만 장면의 첫 프레임으로 씁니다. 고르지 않으면 가사 장면만으로 촬영합니다.</p>
+            <p className="hint">고른 사진은 <b>첫 장면의 첫 프레임</b>으로만 쓰이며 16:9로 가운데를 잘라 사용합니다. 고르지 않으면 가사 장면만으로 촬영합니다.</p>
           </div>
         )}
         <div><label className="label">담고 싶은 이야기 (선택)</label><textarea value={extra} onChange={(e) => setExtra(e.target.value)} className="input min-h-20" maxLength={1000} placeholder="예) 60년 역사, 조합원 3천 명, 새벽 경매, 로컬푸드 직매장" /></div>

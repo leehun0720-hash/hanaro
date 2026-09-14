@@ -8,6 +8,8 @@ export const promoInputSchema = z.object({
   refPhoto: z.string().trim().min(1).nullable().optional(),
   /** 소리: 현장음(Kling 네이티브 오디오) · 한국어 내레이션(자막 읽어주기, OpenAI TTS) */
   sound: z.object({ ambient: z.boolean().default(true), narration: z.boolean().default(true), voice: z.string().optional() }).default({ ambient: true, narration: true }),
+  /** pro: 1080p 고품질 (비용 ↑) */
+  quality: z.enum(["standard", "pro"]).default("standard"),
   mood: z.string().trim().max(100).optional(),
   extra: z.string().trim().max(1000).optional(),
 });
@@ -41,7 +43,10 @@ export function promoSystemPrompt() {
   return [
     "너는 10년 경력의 농협 홍보 영상 기획자다. 30초 황금 구조(후크 3초 → 메시지 20초 → 행동 유도 7초)로 3컷을 설계한다.",
     "무음으로 봐도 이해되도록 자막이 핵심을 다 말해야 한다. 자막은 짧고 큰 글씨용(20자 이내).",
-    "videoPrompt는 영어로, [camera]+[subject]+[setting/time]+[mood] 공식. 밝은 실사풍, 급격한 전환 금지, 실존 인물 얼굴·브랜드 로고·글자 렌더링 요구 금지(자막은 따로 입힌다).",
+    "videoPrompt는 영어로, [camera]+[subject]+[setting/time]+[mood] 공식. 밝은 실사풍, 실존 인물 얼굴·브랜드 로고·글자 렌더링 요구 금지(자막은 따로 입힌다).",
+    "촬영 규칙: 한 컷 = 한 장소 + 피사체 하나 + 카메라 동작 하나(static / slow dolly / slow pan 중 하나). 빠른 움직임·군중·복잡한 배경·장면 전환·손떨림 묘사 금지. 피사체는 상품·현장(축사·과수원·매장·포장) 위주로 구체적인 사물을 지정한다.",
+    "스토리 연속성: 컷1(궁금증을 만드는 현장 장면) → 컷2(그 현장의 상품을 가까이) → 컷3(혜택을 누리는 상황)이 같은 계절·시간대·색감으로 이어지게 쓴다. 각 컷의 첫 문장에 카메라 동작을 명시한다.",
+    "컷1은 사용자가 고른 참조 사진이 첫 프레임이 될 수 있으니, 사진 속 장면에서 자연스럽게 시작하는 느린 카메라 움직임으로 쓴다.",
     "출력은 지정된 JSON 스키마로만.",
   ].join("\n");
 }
