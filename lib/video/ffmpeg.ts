@@ -2,8 +2,9 @@ import { spawn } from "node:child_process";
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { subtitleFilter, type Cue } from "./subtitles";
-import type { SubtitleStyle } from "./subtitle-style";
+import { escapeFilterPath, subtitleFilter, type Cue } from "./subtitles";
+import { DEFAULT_STYLE, type SubtitleStyle } from "./subtitle-style";
+import { buildAss } from "./ass";
 
 /** ffmpeg 바이너리 경로: 환경변수 > ffmpeg-static */
 export async function ffmpegPath(): Promise<string> {
@@ -12,6 +13,21 @@ export async function ffmpegPath(): Promise<string> {
   const p = typeof mod === "string" ? mod : mod.default;
   if (!p) throw new Error("ffmpeg 바이너리를 찾을 수 없습니다.");
   return p;
+}
+
+/** 바이너리가 지원하는 필터 목록 (프로세스당 1회). Linux(ffmpeg-static)는 ass만, Windows는 drawtext만 있는 식으로 빌드가 다르다 */
+let _filters: Promise<Set<string>> | null = null;
+export function availableFilters(): Promise<Set<string>> {
+  return (_filters ??= (async () => {
+    const bin = await ffmpegPath();
+    return new Promise<Set<string>>((resolve) => {
+      const proc = spawn(bin, ["-hide_banner", "-filters"], { stdio: ["ignore", "pipe", "ignore"] });
+      let out = "";
+      proc.stdout.on("data", (d) => (out += d.toString()));
+      proc.on("error", () => resolve(new Set()));
+      proc.on("close", () => resolve(new Set(out.split(/\r?\n/).map((l) => l.trim().split(/\s+/)[1]).filter(Boolean))));
+    });
+  })());
 }
 
 export function run(args: string[], bin?: string): Promise<void> {
@@ -69,8 +85,22 @@ export async function concatClips(clips: string[], output: string, dir: string) 
 /** 자막 번인 + (선택) 오디오 합성 + 끝 페이드아웃 → 최종 mp4 */
 export async function finalize(video: string, output: string, opts: { cues: Cue[]; size: Size; audio?: string; totalSeconds: number; fadeOut?: boolean; loopAudio?: boolean; style?: SubtitleStyle }) {
   const filters: string[] = [];
-  const sub = subtitleFilter(opts.cues, opts.size.h, opts.style ? { style: opts.style } : {});
-  if (sub) filters.push(sub);
+  const cues = opts.cues.filter((c) => c.text.trim() && c.end > c.start);
+  if (cues.length) {
+    const have = await availableFilters();
+    if (have.has("ass")) {
+      // libass: 브라우저와 동일한 ASS 문서 + 번들 폰트 디렉터리
+      const assFile = path.join(path.dirname(output), `sub-${Date.now()}.ass`);
+      await fs.writeFile(assFile, buildAss(cues, opts.style ?? DEFAULT_STYLE, opts.size), "utf8");
+      const fontsDir = path.join(process.cwd(), "assets", "fonts");
+      filters.push(`ass='${escapeFilterPath(assFile)}':fontsdir='${escapeFilterPath(fontsDir)}'`);
+    } else if (have.has("drawtext")) {
+      const sub = subtitleFilter(cues, opts.size.h, opts.style ? { style: opts.style } : {});
+      if (sub) filters.push(sub);
+    } else {
+      throw new Error("이 ffmpeg 빌드에는 자막 필터(ass/drawtext)가 없습니다.");
+    }
+  }
   if (opts.fadeOut) filters.push(`fade=t=out:st=${Math.max(0, opts.totalSeconds - 1).toFixed(2)}:d=1`);
   const args = ["-i", video];
   // loopAudio: 음원이 영상보다 짧으면 반복 (업로드 BGM용). -t 로 총 길이를 자른다
