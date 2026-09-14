@@ -84,6 +84,7 @@ alter table profiles enable trigger profiles_protect;
 - 실패 시 `jobs.error`에 한국어 메시지, 크레딧 자동 환불(`credit_ledger` 사유 `refund:*`).
 - **확인 대기(`waiting`)**: 파이프라인이 `await:*` 단계를 돌려주면 작업은 `waiting`이 되어 폴링해도 진행하지 않습니다.
   화면이 `POST /api/jobs/[id]/resume { action, data }`로 사용자 입력을 보내면 파이프라인의 `resume()`이 다음 단계를 정하고 폴링이 이어집니다.
+- **백그라운드 진행**: 작업은 (1) 화면 폴링, (2) 스튜디오 공통 티커(`/api/jobs/active`, 5초), (3) fal 웹훅, (4) **Vercel Cron `/api/cron/tick`(매분, Pro 플랜)** 네 경로 중 아무 곳에서나 한 단계씩 진행되며 잠금으로 중복을 막습니다. 브라우저를 닫아도 크론이 이어갑니다.
 - **동시 실행 게이트**: fal.ai Kling은 계정 동시 실행 한도(기본 1, 상향 요청)가 있어 `lib/concurrency.ts`가 진행 중 클립 수를 DB에서 세고,
   한도가 차 있으면 `video:start` 단계를 유지하며 "순서 대기 중"을 표시합니다(`MAX_CONCURRENT_VIDEO_JOBS`). 모든 외부 API 호출은 `lib/providers/retry.ts`로 429·5xx를 재시도합니다.
 - 결과 파일은 Storage `outputs/{userId}/{jobId}/…`에 저장, `/api/assets/[id]`가 30분 서명 URL로 리다이렉트.
