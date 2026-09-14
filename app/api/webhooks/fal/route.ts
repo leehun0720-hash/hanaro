@@ -6,6 +6,7 @@ import { completePracticeVideo } from "@/lib/pipelines/practice";
 import { refundPracticeCredit } from "@/lib/practice-credits";
 import type { Job } from "@/lib/types";
 import { getSecret } from "@/lib/secrets";
+import { safeEqual } from "@/lib/safe-compare";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   const url = new URL(request.url);
   const secret = await getSecret("FAL_WEBHOOK_SECRET");
-  if (!secret || url.searchParams.get("token") !== secret) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!secret || !safeEqual(url.searchParams.get("token"), secret)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   const raw = Buffer.from(await request.arrayBuffer());
   const strict = process.env.FAL_WEBHOOK_VERIFY !== "off";

@@ -1,6 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import { safeNext } from "@/lib/site";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -17,11 +18,6 @@ async function site(): Promise<string> {
     if (host) return `${proto}://${host}`;
   } catch {}
   return process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-}
-
-function safeNext(v: FormDataEntryValue | null) {
-  const s = String(v ?? "");
-  return s.startsWith("/") && !s.startsWith("//") ? s : "/studio";
 }
 
 export async function signIn(formData: FormData) {

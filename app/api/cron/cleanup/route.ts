@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCronAuthorized } from "@/lib/safe-compare";
 import { adminClient } from "@/lib/supabase/admin";
 
 export const maxDuration = 300;
@@ -12,10 +13,7 @@ const RETENTION_DAYS = Math.max(1, Number(process.env.ASSET_RETENTION_DAYS ?? 7)
  *  2) uploads/{uid}/practice 및 practice-music 폴더의 원본 사진·음악: ASSET_RETENTION_DAYS 지난 파일 삭제
  */
 export async function GET(request: Request) {
-  const auth = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  if (!isCronAuthorized(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const db = adminClient();
   const now = new Date();
   const report = { assets_deleted: 0, uploads_deleted: 0, errors: [] as string[] };

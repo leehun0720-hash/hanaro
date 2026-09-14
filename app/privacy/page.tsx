@@ -4,7 +4,7 @@ import { getProfile } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LegalFooter } from "@/components/LegalFooter";
 
-export const metadata = { title: "개인정보처리방침" };
+export const metadata = { title: "개인정보처리방침", description: "하나로AI스튜디오가 수집하는 정보, 이용 목적, 처리 위탁(AI 서비스), 보유 기간과 사용자의 권리.", alternates: { canonical: "/privacy" } };
 export const dynamic = "force-dynamic";
 
 const RETENTION_DAYS = Math.max(1, Number(process.env.ASSET_RETENTION_DAYS ?? 7) || 7);

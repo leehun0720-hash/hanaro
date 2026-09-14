@@ -4,8 +4,31 @@ import { getGallery } from "@/lib/gallery";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LegalFooter } from "@/components/LegalFooter";
 import { JOB_TYPE_LABEL } from "@/lib/types";
+import { SITE_DESCRIPTION, SITE_URL } from "@/lib/site";
 
 export const dynamic = "force-dynamic";
+export const metadata = {
+  title: { absolute: "하나로AI스튜디오 — 농축협을 위한 AI 콘텐츠 스튜디오" },
+  alternates: { canonical: "/" },
+};
+
+/** 검색엔진용 구조화 데이터 (조직·웹앱) */
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    { "@type": "Organization", name: "하나로AI스튜디오", url: SITE_URL, logo: `${SITE_URL}/opengraph-image` },
+    {
+      "@type": "WebApplication",
+      name: "하나로AI스튜디오",
+      url: SITE_URL,
+      applicationCategory: "MultimediaApplication",
+      operatingSystem: "Web",
+      inLanguage: "ko",
+      description: SITE_DESCRIPTION,
+      offers: { "@type": "Offer", price: "0", priceCurrency: "KRW", description: "가입 시 무료 ro 30개 제공" },
+    },
+  ],
+};
 
 const rooms = [
   { n: "01", title: "문서 · HWP", tool: "Claude → 한글(HWPX)", desc: "기획서·공문·보고서·보도자료. 읽기는 AI가, 쓰기는 규격대로, 확인은 사람이.", href: "/studio/document", credit: "3" },
@@ -28,6 +51,7 @@ export default async function Home() {
 
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <SiteHeader profile={profile} />
 
       {/* HERO */}

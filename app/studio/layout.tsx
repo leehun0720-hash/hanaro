@@ -6,6 +6,8 @@ import { StudioNav } from "@/components/StudioNav";
 import { ActiveJobsTicker } from "@/components/ActiveJobsTicker";
 import { totalBananas } from "@/lib/credits";
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
   const profile = await requireProfile();
   const sub = await getSubscription(profile.id);

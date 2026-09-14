@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCronAuthorized } from "@/lib/safe-compare";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { availableFilters, cleanup, ffmpegPath, finalize, run, SIZE_169, tmpDir } from "@/lib/video/ffmpeg";
@@ -11,10 +12,7 @@ export const dynamic = "force-dynamic";
  * 1초짜리 색 클립을 만들고 한글 자막(ASS 또는 drawtext)을 입혀 성공 여부·크기·사용 필터를 돌려준다.
  */
 export async function GET(request: Request) {
-  const auth = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  if (!isCronAuthorized(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const started = Date.now();
   const report: Record<string, unknown> = { cwd: process.cwd() };
   let tmp: string | null = null;

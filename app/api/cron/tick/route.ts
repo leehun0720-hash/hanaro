@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isCronAuthorized } from "@/lib/safe-compare";
 import { adminClient } from "@/lib/supabase/admin";
 import { advanceJobSystem } from "@/lib/jobs";
 import type { Job } from "@/lib/types";
@@ -13,10 +14,7 @@ const TIME_BUDGET_MS = 240_000; // 함수 제한(300초) 안에서 여유 있게
  * 잠금(lock_until)으로 화면 폴링·티커·웹훅과 중복 실행되지 않는다. waiting(사용자 확인 대기)은 건드리지 않는다.
  */
 export async function GET(request: Request) {
-  const auth = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  }
+  if (!isCronAuthorized(request)) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const started = Date.now();
   const { data } = await adminClient().from("jobs").select("id, type, step, created_at").in("status", ["queued", "running"]).order("created_at", { ascending: true }).limit(50);
   const jobs = (data ?? []) as Pick<Job, "id" | "type" | "step" | "created_at">[];

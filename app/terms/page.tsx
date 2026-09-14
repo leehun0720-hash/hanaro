@@ -4,7 +4,7 @@ import { getProfile } from "@/lib/auth";
 import { SiteHeader } from "@/components/SiteHeader";
 import { LegalFooter } from "@/components/LegalFooter";
 
-export const metadata = { title: "서비스 이용약관" };
+export const metadata = { title: "서비스 이용약관", description: "하나로AI스튜디오 이용 조건 — 절대 수칙, 생성물의 권리와 책임, ro 결제·환불 기준.", alternates: { canonical: "/terms" } };
 export const dynamic = "force-dynamic";
 
 const UPDATED = "2026-09-14";

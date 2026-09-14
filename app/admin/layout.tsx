@@ -5,6 +5,8 @@ import { signOut } from "@/app/auth/actions";
 import { Alert } from "@/components/Alert";
 import { serviceKeyCheck } from "@/lib/admin-diag";
 
+export const metadata = { robots: { index: false, follow: false } };
+
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdmin();
   const svcError = await serviceKeyCheck();

@@ -6,7 +6,7 @@ import { getPackages, perBanana, discountPct } from "@/lib/packages";
 import { SiteHeader } from "@/components/SiteHeader";
 import type { PlanSettings } from "@/lib/types";
 
-export const metadata = { title: "요금 안내" };
+export const metadata = { title: "요금 안내", description: "1 ro = 100원. 문서·뉴스레터·카드뉴스·홍보영상·뮤직비디오 산출물별 ro 차감량과 충전 패키지, 월 정액 안내.", alternates: { canonical: "/pricing" } };
 export const dynamic = "force-dynamic";
 
 export default async function PricingPage() {
