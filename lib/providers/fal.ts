@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { createFalClient, type FalClient } from "@fal-ai/client";
 import { ProviderHttpError, withRetry } from "./retry";
 import { requireSecret } from "@/lib/secrets";
+import { recordUsage } from "@/lib/usage";
 
 /**
  * fal.ai — Kling 3.0 이미지→영상 (SPEC D1·D2)
@@ -122,6 +123,8 @@ export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId:
     },
     { tries: 5, baseMs: 1000, maxMs: 16000, label: "fal-submit", retryIf: (e) => !isContentRejection(e) && (e instanceof ProviderHttpError ? [408, 409, 425, 429, 500, 502, 503, 504].includes(e.status) : true) },
   );
+  const secs = Number(duration);
+  await recordUsage({ provider: "fal", product: endpoint, unit: "seconds", quantity: secs, costUsd: klingCostUsd(endpoint, secs, Boolean(body.generate_audio)), meta: { request_id: requestId, audio: Boolean(body.generate_audio), i2v: Boolean(input.imageUrl) } });
   return { requestId, endpoint };
 }
 

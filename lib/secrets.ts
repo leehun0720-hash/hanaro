@@ -16,6 +16,9 @@ export const SECRET_DEFS = [
   { name: "APP_BASE_URL", label: "앱 공개 주소 (웹훅 URL 조립용, 예: https://example.vercel.app)", group: "실습·제작실", test: null, secret: false },
   { name: "ELEVENLABS_API_KEY", label: "ElevenLabs (뮤직비디오 음원)", group: "홍보·MV", test: "elevenlabs" },
   { name: "TOSS_SECRET_KEY", label: "토스페이먼츠 시크릿 키 (결제)", group: "결제", test: null },
+  { name: "ANTHROPIC_ADMIN_KEY", label: "Anthropic Admin 키 (sk-ant-admin… · 청구액 조회, 선택)", group: "사용량 보드", test: null },
+  { name: "OPENAI_ADMIN_KEY", label: "OpenAI Admin 키 (sk-admin… · 청구액 조회, 선택)", group: "사용량 보드", test: null },
+  { name: "FAL_ADMIN_KEY", label: "fal.ai Admin 키 (엔드포인트별 청구액·잔액 조회, 선택)", group: "사용량 보드", test: null },
 ] as const;
 export type SecretName = (typeof SECRET_DEFS)[number]["name"];
 const NAMES = new Set<string>(SECRET_DEFS.map((d) => d.name));

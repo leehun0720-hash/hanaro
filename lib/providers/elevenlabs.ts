@@ -5,6 +5,7 @@
  */
 import { ProviderHttpError, withRetry } from "./retry";
 import { requireSecret } from "@/lib/secrets";
+import { PRICES, recordUsage } from "@/lib/usage";
 
 const BASE = "https://api.elevenlabs.io/v1";
 export const MUSIC_MODEL = process.env.ELEVENLABS_MUSIC_MODEL ?? "music_v2";
@@ -42,6 +43,7 @@ export async function composeMusic(plan: CompositionPlan): Promise<Buffer> {
       }
       const buf = Buffer.from(await r.arrayBuffer());
       if (buf.length < 1000) throw new Error("음원 생성 결과가 비어 있습니다.");
+      await recordUsage({ provider: "elevenlabs", product: MUSIC_MODEL, unit: "tracks", quantity: 1, costUsd: PRICES.musicPerTrack, meta: { bytes: buf.length } });
       return buf;
     },
     { tries: 3, label: "elevenlabs" },

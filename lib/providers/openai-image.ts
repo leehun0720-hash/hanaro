@@ -1,6 +1,7 @@
 import OpenAI, { toFile } from "openai";
 import { withRetry } from "./retry";
 import { requireSecret } from "@/lib/secrets";
+import { PRICES, recordUsage } from "@/lib/usage";
 
 /**
  * OpenAI Images — 뉴스레터·카드뉴스·포스터 이미지 담당.
@@ -27,6 +28,18 @@ export async function openaiClient(): Promise<OpenAI> {
   return _client.c;
 }
 
+/** 응답 usage(토큰)가 있으면 토큰 단가로, 없으면 품질별 장당 요금으로 추정 */
+async function logImageUsage(res: { usage?: { input_tokens?: number; output_tokens?: number; input_tokens_details?: { text_tokens?: number; image_tokens?: number } } }, kind: "generate" | "edit", quality: ImageQuality, size: string) {
+  const u = res.usage;
+  let cost: number;
+  if (u && (u.input_tokens || u.output_tokens)) {
+    const text = u.input_tokens_details?.text_tokens ?? u.input_tokens ?? 0;
+    const img = u.input_tokens_details?.image_tokens ?? 0;
+    cost = text * (PRICES.imageTextInPerM / 1e6) + img * (PRICES.imageImageInPerM / 1e6) + (u.output_tokens ?? 0) * (PRICES.imageOutPerM / 1e6);
+  } else cost = PRICES.imagePerCall[quality] ?? PRICES.imagePerCall.high;
+  await recordUsage({ provider: "openai", product: IMAGE_MODEL, unit: "images", quantity: 1, costUsd: cost, meta: { kind, quality, size, input_tokens: u?.input_tokens, output_tokens: u?.output_tokens } });
+}
+
 export async function generateImage(opts: { prompt: string; size: ImageSize; quality?: ImageQuality }): Promise<Buffer> {
   const res = await withRetry(
     async () =>
@@ -40,6 +53,7 @@ export async function generateImage(opts: { prompt: string; size: ImageSize; qua
       }),
     { tries: 3, label: "gpt-image" },
   );
+  await logImageUsage(res, "generate", opts.quality ?? "high", opts.size);
   const b64 = res.data?.[0]?.b64_json;
   if (!b64) throw new Error("이미지 생성 결과가 비어 있습니다. 다시 시도해 주세요.");
   return Buffer.from(b64, "base64");
@@ -67,6 +81,7 @@ export async function editImage(opts: {
       }),
     { tries: 3, label: "gpt-image-edit" },
   );
+  await logImageUsage(res, "edit", opts.quality ?? "high", String(opts.size));
   const b64 = res.data?.[0]?.b64_json;
   if (!b64) throw new Error("이미지 생성 결과가 비어 있습니다. 다시 시도해 주세요.");
   return Buffer.from(b64, "base64");

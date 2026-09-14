@@ -1,4 +1,5 @@
 import { adminClient } from "@/lib/supabase/admin";
+import { usageContext } from "@/lib/usage";
 import { addCredits, deductCredits, InsufficientCredits } from "@/lib/credits";
 import type { AssetKind, Job, JobType, Project } from "@/lib/types";
 import { getPipeline } from "@/lib/pipelines";
@@ -160,7 +161,7 @@ async function advanceLoaded(j: Job): Promise<Job> {
   const ctx = await buildContext(current, userId);
 
   try {
-    const result = await getPipeline(current.type).run(ctx, current.step ?? getPipeline(current.type).firstStep);
+    const result = await usageContext.run({ jobId, userId: current.user_id, jobType: current.type }, () => getPipeline(current.type).run(ctx, current.step ?? getPipeline(current.type).firstStep));
     if ("done" in result) {
       const { data } = await db.from("jobs").update({ status: "succeeded", step: "done", lock_until: null, finished_at: new Date().toISOString() }).eq("id", jobId).select("*").single();
       return data as Job;
@@ -191,7 +192,7 @@ export async function resumeJob(jobId: string, userId: string, action: string, d
   if (!pipeline.resume) throw new ResumeInputError("이 작업 유형은 중간 입력을 지원하지 않습니다.");
 
   const ctx = await buildContext(j, userId);
-  const result = await pipeline.resume(ctx, action, data);
+  const result = await usageContext.run({ jobId, userId: j.user_id, jobType: j.type }, () => pipeline.resume!(ctx, action, data));
   if ("done" in result) {
     const { data: done } = await db.from("jobs").update({ status: "succeeded", step: "done", lock_until: null, finished_at: new Date().toISOString() }).eq("id", jobId).select("*").single();
     return done as Job;

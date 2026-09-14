@@ -1,5 +1,6 @@
 import { openaiClient } from "./openai-image";
 import { withRetry } from "./retry";
+import { PRICES, recordUsage } from "@/lib/usage";
 
 /**
  * OpenAI 음성 합성 — 한국어 내레이션(자막·대사 읽어주기).
@@ -26,7 +27,9 @@ export async function synthesizeSpeech(opts: { text: string; voice?: TtsVoice; s
         speed: Math.max(0.5, Math.min(2, opts.speed ?? 1)),
         instructions: opts.instructions ?? "한국어 홍보 내레이션. 따뜻하고 또렷하게, 너무 빠르지 않게 읽는다. 문장 부호는 읽지 않는다.",
       });
-      return Buffer.from(await r.arrayBuffer());
+      const buf = Buffer.from(await r.arrayBuffer());
+      await recordUsage({ provider: "openai", product: TTS_MODEL, unit: "chars", quantity: text.length, costUsd: ttsCostUsd(text.length), meta: { voice: opts.voice ?? DEFAULT_TTS_VOICE } });
+      return buf;
     },
     { tries: 3, label: "openai-tts" },
   );
@@ -34,5 +37,5 @@ export async function synthesizeSpeech(opts: { text: string; voice?: TtsVoice; s
 
 /** 대략적 원가 (관리자 비용 표시용) — 글자 수 기준 */
 export function ttsCostUsd(chars: number): number {
-  return Math.round((chars / 1_000_000) * 12 * 10000) / 10000; // 입력 100만 자당 약 $12
+  return Math.round((chars / 1_000_000) * PRICES.ttsPerMChars * 10000) / 10000;
 }

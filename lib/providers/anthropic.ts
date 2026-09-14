@@ -3,6 +3,7 @@ import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import type { z } from "zod";
 import { withRetry } from "./retry";
 import { requireSecret } from "@/lib/secrets";
+import { PRICES, recordUsage } from "@/lib/usage";
 
 /**
  * Claude 호출 래퍼 — 기획·원고·가사·장면 설계 담당.
@@ -43,6 +44,17 @@ function userContent(text: string, images?: ImageInput[]): string | Anthropic.Be
   ];
 }
 
+/** 응답 usage → 토큰 수·추정 비용 기록 */
+async function logClaudeUsage(res: { model?: string; usage?: { input_tokens?: number; output_tokens?: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null } }, kind: string) {
+  const u = res.usage ?? {};
+  const inTok = u.input_tokens ?? 0;
+  const outTok = u.output_tokens ?? 0;
+  const cacheRead = u.cache_read_input_tokens ?? 0;
+  const cacheWrite = u.cache_creation_input_tokens ?? 0;
+  const cost = (inTok + cacheWrite * 1.25) * (PRICES.claudeInPerM / 1e6) + cacheRead * (PRICES.claudeCacheReadPerM / 1e6) + outTok * (PRICES.claudeOutPerM / 1e6);
+  await recordUsage({ provider: "anthropic", product: res.model ?? CLAUDE_MODEL, unit: "tokens", quantity: inTok + outTok + cacheRead + cacheWrite, costUsd: cost, meta: { kind, input_tokens: inTok, output_tokens: outTok, cache_read: cacheRead, cache_write: cacheWrite } });
+}
+
 export async function generateJSON<S extends z.ZodType>(
   schema: S,
   opts: { system: string; user: string; effort?: Effort; maxTokens?: number; images?: ImageInput[] },
@@ -61,6 +73,7 @@ export async function generateJSON<S extends z.ZodType>(
       }),
     { tries: 3, label: "claude" },
   );
+  await logClaudeUsage(res, "json");
 
   if (res.stop_reason === "refusal") {
     const cat = res.stop_details && "category" in res.stop_details ? String(res.stop_details.category ?? "") : "";
@@ -86,6 +99,7 @@ export async function generateText(opts: { system: string; user: string; effort?
       }),
     { tries: 3, label: "claude" },
   );
+  await logClaudeUsage(res, "text");
   if (res.stop_reason === "refusal") throw new ClaudeRefusal();
   return res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("\n").trim();
 }
