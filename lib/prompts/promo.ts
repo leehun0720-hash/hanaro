@@ -7,11 +7,11 @@ export const promoInputSchema = z.object({
   /** 사용자가 고른 프로젝트 사진 경로 (없으면 참조 없이 text-to-video) */
   refPhoto: z.string().trim().min(1).nullable().optional(),
   /** 소리: 현장음(Kling 네이티브 오디오) · 한국어 내레이션(자막 읽어주기, OpenAI TTS) */
-  sound: z.object({ ambient: z.boolean().default(true), narration: z.boolean().default(true), voice: z.string().optional() }).default({ ambient: true, narration: true }),
+  sound: z.object({ ambient: z.boolean().default(false), narration: z.boolean().default(true), voice: z.string().optional() }).default({ ambient: false, narration: true }),
   /** pro: 1080p 고품질 (비용 ↑) */
   quality: z.enum(["standard", "pro"]).default("standard"),
   /** 영상 모델 */
-  model: z.enum(["kling", "veo"]).default("kling"),
+  model: z.enum(["veo_lite", "veo_fast", "kling"]).default("kling"),
   /** 자막 스타일 (폰트·테마·위치·크기) */
   subtitle: z.object({ fontId: z.string().optional(), themeId: z.string().optional(), position: z.enum(["top", "bottom"]).optional(), fontSize: z.number().optional() }).optional(),
   mood: z.string().trim().max(100).optional(),

@@ -12,6 +12,7 @@ export const SECRET_DEFS = [
   { name: "OPENAI_API_KEY", label: "OpenAI (이미지 편집 · 뉴스레터·카드뉴스 이미지)", group: "실습·제작실", test: "openai" },
   { name: "ANTHROPIC_API_KEY", label: "Anthropic Claude (프롬프트·원고)", group: "실습·제작실", test: "anthropic" },
   { name: "FAL_KEY", label: "fal.ai (Kling 3.0 영상)", group: "실습·제작실", test: "fal" },
+  { name: "GOOGLE_API_KEY", label: "Google Gemini API (Veo 3.1 영상 · 결제 연결된 프로젝트)", group: "실습·제작실", test: "google" },
   { name: "FAL_WEBHOOK_SECRET", label: "fal 웹훅 토큰 (임의의 긴 문자열, 배포 시)", group: "실습·제작실", test: null },
   { name: "APP_BASE_URL", label: "앱 공개 주소 (웹훅 URL 조립용, 예: https://example.vercel.app)", group: "실습·제작실", test: null, secret: false },
   { name: "ELEVENLABS_API_KEY", label: "ElevenLabs (뮤직비디오 음원)", group: "홍보·MV", test: "elevenlabs" },

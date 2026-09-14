@@ -10,7 +10,7 @@ import { adminClient } from "@/lib/supabase/admin";
 import { canStartVideoTasks, countAheadInQueue, estimateWaitSeconds } from "@/lib/concurrency";
 import { getPracticeCredits, NoPracticeCredits, refundPracticeCredit, consumePracticeCredit } from "@/lib/practice-credits";
 import { getSecret } from "@/lib/secrets";
-import { buildNarrationTrack, cleanup, downloadTo, finalize, normalizeClip, SIZE_169, SIZE_916, tmpDir } from "@/lib/video/ffmpeg";
+import { buildNarrationTrack, cleanup, downloadTo, finalize, hasAudioStream, normalizeClip, run, SIZE_169, SIZE_916, tmpDir } from "@/lib/video/ffmpeg";
 import type { Cue } from "@/lib/video/subtitles";
 import { normalizeStyle, type SubtitleStyle } from "@/lib/video/subtitle-style";
 import {
@@ -113,12 +113,18 @@ const addCost = async (ctx: JobContext, usd: number) => {
 const bump = (o: PracticeOut, kind: "image" | "video") => ({ image: (o.credits_used?.image ?? 0) + (kind === "image" ? 1 : 0), video: (o.credits_used?.video ?? 0) + (kind === "video" ? 1 : 0) });
 
 /** Kling 결과 영상 저장 → 자막 단계로. 폴링·웹훅 양쪽에서 호출 */
-export async function completePracticeVideo(ctx: JobContext, videoUrl: string): Promise<{ next: string }> {
+export async function completePracticeVideo(ctx: JobContext, videoUrl: string, headers?: Record<string, string>): Promise<{ next: string }> {
   const o = out(ctx);
   const tmp = await tmpDir();
   try {
-    const file = path.join(tmp, "clip.mp4");
-    await downloadTo(videoUrl, file); // 결과 URL은 만료되므로 즉시 Storage로 복사 (SPEC §3.3)
+    const raw = path.join(tmp, "raw.mp4");
+    await downloadTo(videoUrl, raw, headers); // 결과 URL은 만료되므로 즉시 Storage로 복사 (SPEC §3.3)
+    // 기준 설정: 현장음 없음 — 모델이 소리를 넣어 왔어도 사용자가 켜지 않았으면 제거 (재인코딩 없이 오디오 트랙만 뺀다)
+    let file = raw;
+    if (!o.video_sound && (await hasAudioStream(raw))) {
+      file = path.join(tmp, "clip.mp4");
+      await run(["-i", raw, "-c:v", "copy", "-an", "-movflags", "+faststart", file]);
+    }
     const data = await fs.readFile(file);
     const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: "실습_원본.mp4", clip: true }, deleteAfter: deleteAfter() });
     const duration = o.scene?.duration ?? 5;
@@ -195,7 +201,7 @@ export const practicePipeline: Pipeline = {
         await addCost(ctx, klingCostUsd(endpoint, seconds, Boolean(o.video_sound)));
         await ctx.update({
           provider_task_ids: { clip: requestId },
-          output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), fal_request_ids: [requestId], queue_position: null, eta_seconds: null, notice: `${o.video_model === "veo" ? "Veo" : "Kling"}에 제출했어요. 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요.` },
+          output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), fal_request_ids: [requestId], queue_position: null, eta_seconds: null, notice: `${o.video_model?.startsWith("veo") ? "Veo" : "Kling"}에 제출했어요. 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요.` },
         });
         return { next: "video:wait" };
       } catch (e) {
@@ -227,8 +233,8 @@ export const practicePipeline: Pipeline = {
         return { next: "video:wait" };
       }
       try {
-        const { videoUrl } = await getVideoResult(endpoint, requestId);
-        return completePracticeVideo(ctx, videoUrl);
+        const { videoUrl, headers } = await getVideoResult(endpoint, requestId);
+        return completePracticeVideo(ctx, videoUrl, headers);
       } catch (e) {
         if (isContentRejection(e)) {
           await refundPracticeCredit(userId, "video");

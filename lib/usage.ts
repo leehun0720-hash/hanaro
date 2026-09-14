@@ -8,10 +8,10 @@ import { supabaseConfigured } from "@/lib/auth";
  * 기록 실패는 절대 작업을 멈추지 않는다 (best-effort).
  */
 
-export type Provider = "anthropic" | "openai" | "fal" | "elevenlabs";
+export type Provider = "anthropic" | "openai" | "fal" | "google" | "elevenlabs";
 export type UsageUnit = "tokens" | "images" | "seconds" | "chars" | "tracks";
 
-export const PROVIDER_LABEL: Record<Provider, string> = { anthropic: "Anthropic (Claude)", openai: "OpenAI (이미지·음성)", fal: "fal.ai (Kling 영상)", elevenlabs: "ElevenLabs (음악)" };
+export const PROVIDER_LABEL: Record<Provider, string> = { anthropic: "Anthropic (Claude)", openai: "OpenAI (이미지·음성)", fal: "fal.ai (Kling 영상)", google: "Google (Veo 영상)", elevenlabs: "ElevenLabs (음악)" };
 export const UNIT_LABEL: Record<UsageUnit, string> = { tokens: "토큰", images: "장", seconds: "초", chars: "자", tracks: "곡" };
 
 type UsageCtx = { jobId?: string; userId?: string; jobType?: string };

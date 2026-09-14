@@ -114,9 +114,9 @@ export async function waitClips(ctx: JobContext, keys: string[], tmp: string): P
         if (s.status === "IN_QUEUE") queued++;
         continue;
       }
-      const { videoUrl } = await getVideoResult(endpoint, requestId);
+      const { videoUrl, headers } = await getVideoResult(endpoint, requestId);
       const file = path.join(tmp, `${key}.mp4`);
-      await downloadTo(videoUrl, file); // 결과 URL은 만료되므로 즉시 Storage로 복사
+      await downloadTo(videoUrl, file, headers); // 결과 URL은 만료되므로 즉시 Storage로 복사
       const data = await fs.readFile(file);
       const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `클립_${key}.mp4`, clip: key, intermediate: true } });
       saved[key] = asset.id;

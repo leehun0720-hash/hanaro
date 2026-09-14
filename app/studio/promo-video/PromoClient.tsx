@@ -6,7 +6,7 @@ import type { PromoOutput } from "@/lib/prompts/promo";
 import type { Project } from "@/lib/types";
 import { RefPhotoPicker } from "@/components/RefPhotoPicker";
 import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
-import { VIDEO_MODELS, type VideoModel } from "@/lib/video-models";
+import { VIDEO_MODELS, defaultVideoModel, type VideoModel } from "@/lib/video-models";
 import { SubtitleStylePicker } from "@/components/SubtitleStylePicker";
 import { DEFAULT_STYLE, type SubtitleStyle } from "@/lib/video/subtitle-style";
 
@@ -17,15 +17,15 @@ const STEPS = {
   compose: "컷을 잇고 자막을 입히는 중 (ffmpeg)",
 };
 
-export function PromoClient({ projects, photoUrls, preselect, credits, initial }: { projects: Project[]; photoUrls: Record<string, string>; preselect: string | null; credits: number; initial?: JobResult | null }) {
+export function PromoClient({ projects, photoUrls, preselect, credits, initial, googleReady }: { projects: Project[]; photoUrls: Record<string, string>; preselect: string | null; credits: number; initial?: JobResult | null; googleReady: boolean }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? projects[0]?.id ?? "");
   const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
   const [refPhoto, setRefPhoto] = useState<string | null>(null); // 기본: 참조 안 함
-  const [ambient, setAmbient] = useState(true);
+  const [ambient, setAmbient] = useState(false); // 기준 설정: 현장음 없음
   const [narration, setNarration] = useState(true);
   const [voice, setVoice] = useState<TtsVoice>("nova");
-  const [quality, setQuality] = useState<"standard" | "pro">("standard");
-  const [model, setModel] = useState<VideoModel>("kling");
+  const quality = "standard" as const; // 기준 설정: 720p
+  const [model, setModel] = useState<VideoModel>(defaultVideoModel(googleReady));
   const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_STYLE);
   const [mood, setMood] = useState("");
   const [extra, setExtra] = useState("");
@@ -58,27 +58,23 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
         </div>
         <div>
           <label className="label">영상 모델</label>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {(Object.keys(VIDEO_MODELS) as VideoModel[]).map((m) => (
-              <button key={m} type="button" onClick={() => setModel(m)} className={`rounded-lg border px-3 py-2 text-left text-sm ${model === m ? "border-brand bg-brand-soft" : "border-line"}`}>
-                <div className="font-medium">{VIDEO_MODELS[m].label}</div>
-                <div className="text-[11px] text-muted">{VIDEO_MODELS[m].desc} · {VIDEO_MODELS[m].priceNote}</div>
-              </button>
-            ))}
+          <div className="grid gap-2 sm:grid-cols-3">
+            {(Object.keys(VIDEO_MODELS) as VideoModel[]).map((m) => {
+              const off = VIDEO_MODELS[m].provider === "google" && !googleReady;
+              return (
+                <button key={m} type="button" disabled={off} onClick={() => setModel(m)} className={`rounded-lg border px-3 py-2 text-left text-sm disabled:opacity-50 ${model === m ? "border-brand bg-brand-soft" : "border-line"}`} title={off ? "관리자 → API 키에 GOOGLE_API_KEY를 넣으면 사용할 수 있어요" : undefined}>
+                  <div className="font-medium">{VIDEO_MODELS[m].label}</div>
+                  <div className="text-[11px] text-muted">{VIDEO_MODELS[m].desc} · {VIDEO_MODELS[m].priceNote}</div>
+                </button>
+              );
+            })}
           </div>
-          {model === "veo" && <p className="hint">Veo는 클립이 최대 8초라 10초 컷은 살짝 느린 화면(1.25배)으로 채웁니다. 사람·얼굴 관련 안전 필터가 Kling보다 엄격합니다.</p>}
-        </div>
-        <div>
-          <label className="label">품질</label>
-          <div className="flex gap-2">
-            <button type="button" onClick={() => setQuality("standard")} className={`rounded-lg border px-3 py-2 text-sm ${quality === "standard" ? "border-brand bg-brand-soft" : "border-line"}`}>표준 720p (빠름)</button>
-            <button type="button" onClick={() => setQuality("pro")} className={`rounded-lg border px-3 py-2 text-sm ${quality === "pro" ? "border-brand bg-brand-soft" : "border-line"}`}>고품질 1080p Pro (느림 · 비용 약 1.3배)</button>
-          </div>
+          <p className="hint">기준 설정: 720p · 현장음 없음. Veo는 클립이 최대 8초라 10초 컷은 살짝 느린 화면(1.25배)으로 채웁니다.</p>
         </div>
         <div>
           <label className="label">소리</label>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-            <label className="flex items-center gap-2"><input type="checkbox" checked={ambient} onChange={(e) => setAmbient(e.target.checked)} /> 현장음·효과음 (Kling)</label>
+            <label className="flex items-center gap-2"><input type="checkbox" checked={ambient} onChange={(e) => setAmbient(e.target.checked)} /> 현장음·효과음 (기본 꺼짐)</label>
             <label className="flex items-center gap-2"><input type="checkbox" checked={narration} onChange={(e) => setNarration(e.target.checked)} /> 한국어 내레이션 (자막을 읽어줌)</label>
             {narration && (
               <select value={voice} onChange={(e) => setVoice(e.target.value as TtsVoice)} className="input w-auto py-1.5 text-xs">
@@ -86,7 +82,7 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
               </select>
             )}
           </div>
-          <p className="hint">현장음을 켜고 참조 사진을 고르면 오디오 지원 모델을 써서 비용이 조금 늘어요. 배경음악이 필요하면 완성본을 실습 제작실의 자막 도구에서 mp3와 섞을 수 있습니다.</p>
+          <p className="hint">현장음을 켜면 Kling은 오디오 지원 엔드포인트($0.14/초)를 씁니다. 배경음악이 필요하면 완성본을 실습 제작실의 자막 도구에서 mp3와 섞을 수 있습니다.</p>
         </div>
         <details className="rounded-lg border border-line p-3">
           <summary className="cursor-pointer text-sm font-medium">자막 폰트·테마 (기본: Noto Sans · 검정 박스)</summary>

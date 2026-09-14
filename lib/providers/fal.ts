@@ -5,6 +5,7 @@ import { requireSecret } from "@/lib/secrets";
 import { recordUsage } from "@/lib/usage";
 import { DEFAULT_VIDEO_MODEL, type VideoModel } from "@/lib/video-models";
 export { VIDEO_MODELS, DEFAULT_VIDEO_MODEL, isVideoModel, type VideoModel } from "@/lib/video-models";
+import { GOOGLE_VEO_FAST, GOOGLE_VEO_LITE, googleSubmitVideo, googleVideoResult, googleVideoStatus, googleVeoCostUsd, isGoogleEndpoint } from "./google-veo";
 
 /**
  * fal.ai — Kling 3.0 이미지→영상 (SPEC D1·D2)
@@ -35,10 +36,11 @@ export const FAL_VEO_T2V = process.env.FAL_VEO_T2V ?? "fal-ai/veo3.1/fast";
 export const FAL_VEO_I2V = process.env.FAL_VEO_I2V ?? "fal-ai/veo3.1/fast/image-to-video";
 export const isVeoEndpoint = (endpoint: string) => endpoint.includes("veo");
 
-/** 모델·입력 조합 → fal 엔드포인트 */
+/** 모델·입력 조합 → 엔드포인트 (fal 또는 google/…) */
 export function resolveVideoEndpoint(opts: { model?: VideoModel; imageUrl?: string; audio?: boolean; pro?: boolean }): string {
   const model = opts.model ?? DEFAULT_VIDEO_MODEL;
-  if (model === "veo") return opts.imageUrl ? FAL_VEO_I2V : FAL_VEO_T2V;
+  if (model === "veo_lite") return GOOGLE_VEO_LITE;
+  if (model === "veo_fast") return GOOGLE_VEO_FAST;
   if (opts.imageUrl) return opts.audio ? (opts.pro ? FAL_I2V_AUDIO_ENDPOINT_PRO : FAL_I2V_AUDIO_ENDPOINT_DEFAULT) : opts.pro ? FAL_VIDEO_ENDPOINT_PRO : FAL_VIDEO_ENDPOINT_DEFAULT;
   return opts.pro ? FAL_T2V_ENDPOINT_PRO : FAL_T2V_ENDPOINT_DEFAULT;
 }
@@ -50,6 +52,7 @@ export function veoSeconds(requested: number): 4 | 6 | 8 {
 
 /** 초당 단가(USD) — fal 가격표(2026-09). 변동 가능, 관리자 비용 표시용 */
 export function klingCostUsd(endpoint: string, seconds: number, audio = false): number {
+  if (isGoogleEndpoint(endpoint)) return googleVeoCostUsd(endpoint, seconds);
   if (isVeoEndpoint(endpoint)) return Math.round((audio ? 0.15 : 0.1) * seconds * 10000) / 10000;
   const pro = endpoint.includes("/pro/");
   const perSec = isTurboEndpoint(endpoint) ? (pro ? 0.14 : 0.112) : pro ? (audio ? 0.196 : 0.14) : audio ? 0.14 : 0.084; // v3 standard i2v(오디오)는 실제 청구 $0.14/초 (2026-09 fal 사용량 화면 확인)
@@ -122,6 +125,11 @@ export function koReasonFor(e: unknown): string {
 
 export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId: string; endpoint: string; seconds: number }> {
   const endpoint = input.endpoint ?? resolveVideoEndpoint({ model: input.model, imageUrl: input.imageUrl, audio: input.generateAudio, pro: input.pro });
+  if (isGoogleEndpoint(endpoint)) {
+    const seconds = veoSeconds(input.duration);
+    const { requestId } = await googleSubmitVideo({ endpoint, prompt: input.prompt, seconds, aspectRatio: input.aspectRatio === "9:16" ? "9:16" : "16:9", resolution: input.pro ? "1080p" : "720p", negativePrompt: input.negativePrompt, imageUrl: input.imageUrl });
+    return { requestId, endpoint, seconds: input.pro ? 8 : seconds };
+  }
   const body: Record<string, unknown> = { prompt: input.prompt.slice(0, 2500) };
   let seconds = Math.max(3, Math.min(15, Math.round(input.duration)));
   if (isVeoEndpoint(endpoint)) {
@@ -170,6 +178,7 @@ export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId:
 export type VideoStatus = { status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED"; queuePosition?: number };
 
 export async function getVideoStatus(endpoint: string, requestId: string): Promise<VideoStatus> {
+  if (isGoogleEndpoint(endpoint)) return googleVideoStatus(requestId);
   return withRetry(
     async () => {
       try {
@@ -183,7 +192,8 @@ export async function getVideoStatus(endpoint: string, requestId: string): Promi
   );
 }
 
-export async function getVideoResult(endpoint: string, requestId: string): Promise<{ videoUrl: string }> {
+export async function getVideoResult(endpoint: string, requestId: string): Promise<{ videoUrl: string; headers?: Record<string, string> }> {
+  if (isGoogleEndpoint(endpoint)) return googleVideoResult(requestId);
   return withRetry(
     async () => {
       try {

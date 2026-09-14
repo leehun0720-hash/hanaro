@@ -7,7 +7,7 @@ import { adminClient } from "@/lib/supabase/admin";
  * (서버리스라 프로세스 내 세마포어는 쓸 수 없다. 폴링 간격 4초 안의 경쟁으로 1~2건 초과할 수 있으나 재시도가 흡수한다.)
  */
 /** SPEC §8: 전체 진행 중 영상 클립 상한 = fal 승인 동시 실행 수 (MAX_CONCURRENT_VIDEO_JOBS) */
-export const MAX_CONCURRENT_VIDEO_JOBS = Math.max(1, Number(process.env.MAX_CONCURRENT_VIDEO_JOBS ?? 3) || 3);
+export const MAX_CONCURRENT_VIDEO_JOBS = Math.max(1, Number(process.env.MAX_CONCURRENT_VIDEO_JOBS ?? 10) || 10);
 /** 평균 생성 시간(초) — 순번 예상시간 계산용 (Kling 5초 클립 약 1.5~3분) */
 export const AVG_VIDEO_SECONDS = Math.max(30, Number(process.env.AVG_VIDEO_SECONDS ?? 120) || 120);
 

@@ -150,6 +150,12 @@ export async function elevenlabsBilling(): Promise<VendorBilling> {
   }
 }
 
+/** Google — Gemini API에는 청구액 조회 API가 없다 (Cloud Billing 콘솔에서 확인) */
+export async function googleBilling(): Promise<VendorBilling> {
+  const key = await getSecret("GOOGLE_API_KEY");
+  return { provider: "google", configured: Boolean(key), ok: Boolean(key), note: key ? "청구액은 Google Cloud 콘솔 → 결제에서 확인 (API 미제공)" : undefined, dashboardUrl: "https://console.cloud.google.com/billing", keyName: "GOOGLE_API_KEY" };
+}
+
 export async function allVendorBilling(from: Date, to: Date): Promise<VendorBilling[]> {
-  return Promise.all([anthropicBilling(from, to), openaiBilling(from, to), falBilling(from, to), elevenlabsBilling()]);
+  return Promise.all([anthropicBilling(from, to), openaiBilling(from, to), falBilling(from, to), googleBilling(), elevenlabsBilling()]);
 }

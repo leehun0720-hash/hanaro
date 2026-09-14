@@ -45,8 +45,8 @@ export async function tmpDir(prefix = "hanaro-"): Promise<string> {
   return fs.mkdtemp(path.join(os.tmpdir(), prefix));
 }
 
-export async function downloadTo(url: string, file: string): Promise<void> {
-  const r = await fetch(url, { cache: "no-store" });
+export async function downloadTo(url: string, file: string, headers?: Record<string, string>): Promise<void> {
+  const r = await fetch(url, { cache: "no-store", headers });
   if (!r.ok) throw new Error(`파일 다운로드 실패: ${r.status}`);
   await fs.writeFile(file, Buffer.from(await r.arrayBuffer()));
 }

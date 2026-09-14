@@ -3,7 +3,7 @@ import { getCosts, costFor } from "@/lib/credits";
 import { jobWithAssets } from "@/lib/jobs";
 import { getPracticeCredits } from "@/lib/practice-credits";
 import { hasActivePracticeJob } from "@/lib/concurrency";
-import { missingPracticeKeys } from "@/lib/secrets";
+import { getSecret, missingPracticeKeys } from "@/lib/secrets";
 import { Alert } from "@/components/Alert";
 import { PracticeClient } from "./PracticeClient";
 import { recordConsent } from "./actions";
@@ -60,7 +60,7 @@ export default async function PracticePage({ searchParams }: PageProps<"/studio/
           <Alert kind="warn">
             <b>업로드 금지:</b> 타인·유명인·미성년자 사진, 선정적·폭력적 요청. 남은 횟수 — 이미지 편집 <b>{credits.image_left}회</b> · 영상 생성 <b>{credits.video_left}회</b> (자막은 무제한).
           </Alert>
-          <PracticeClient userId={profile.id} nickname={profile.name || profile.email.split("@")[0]} credits={costFor("practice", costs)} practiceCredits={credits} initial={resumable} />
+          <PracticeClient userId={profile.id} nickname={profile.name || profile.email.split("@")[0]} credits={costFor("practice", costs)} practiceCredits={credits} initial={resumable} googleReady={Boolean(await getSecret("GOOGLE_API_KEY"))} />
         </>
       )}
     </div>

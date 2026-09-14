@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildInstrumentalPlan, composeMusic, MUSIC_MODEL } from "@/lib/providers/elevenlabs";
+import { googleKeyProbe } from "@/lib/providers/google-veo";
 import { getProfile } from "@/lib/auth";
 import { getSecret, isSecretName, type SecretName } from "@/lib/secrets";
 
@@ -60,6 +61,8 @@ export async function POST(request: Request) {
           return NextResponse.json({ ok: music.ok, message: `키 인증 통과 ('사용자 정보 읽기' 권한 없는 제한 키, 응답 ${r.status}). ${music.message}` });
         }
       }
+      case "GOOGLE_API_KEY":
+        return NextResponse.json(await googleKeyProbe(key));
       case "FAL_KEY":
         r = await fetch("https://queue.fal.run/fal-ai/kling-video/requests/00000000-0000-0000-0000-000000000000/status", { headers: { Authorization: `Key ${key}` }, signal: ctl.signal });
         if (r.status === 401 || r.status === 403) return NextResponse.json({ ok: false, message: `fal.ai 인증 실패 (${r.status}). 키를 확인하세요.` });

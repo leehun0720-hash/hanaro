@@ -37,7 +37,7 @@ function range(p: Period): { from: Date; to: Date } {
 const usd = (v: number) => `$${v.toFixed(v >= 100 ? 0 : v >= 10 ? 1 : 2)}`;
 const krw = (v: number) => `₩${Math.round(v * PRICES.krwPerUsd).toLocaleString("ko-KR")}`;
 const qty = (v: number, unit: string) => `${v >= 1000 ? Math.round(v).toLocaleString("ko-KR") : Math.round(v * 10) / 10}${unit in UNIT_LABEL ? UNIT_LABEL[unit as keyof typeof UNIT_LABEL] : ""}`;
-const PROVIDER_ORDER: Provider[] = ["anthropic", "openai", "fal", "elevenlabs"];
+const PROVIDER_ORDER: Provider[] = ["anthropic", "openai", "fal", "google", "elevenlabs"];
 
 export default async function AdminUsage({ searchParams }: PageProps<"/admin/usage">) {
   const sp = await searchParams;
@@ -72,7 +72,7 @@ export default async function AdminUsage({ searchParams }: PageProps<"/admin/usa
       {summary.tableMissing && <Alert kind="error">api_usage 테이블이 없습니다. Supabase SQL Editor에서 <code>supabase/migrations/0009_api_usage.sql</code>을 실행하세요. 실행 이후의 호출부터 기록됩니다.</Alert>}
 
       {/* 업체별 요약 카드 */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         {PROVIDER_ORDER.map((prov) => {
           const s = summary.byProvider.find((b) => b.provider === prov);
           const v = vendors.find((b) => b.provider === prov);
@@ -132,7 +132,7 @@ export default async function AdminUsage({ searchParams }: PageProps<"/admin/usa
                     <td className="py-1.5 font-mono text-xs">{d.day}</td>
                     <td className="py-1.5 pr-3">
                       <div className="flex h-3 w-full overflow-hidden rounded bg-gray-100">
-                        {PROVIDER_ORDER.map((p) => (d.per[p] ? <span key={p} className={`h-3 ${p === "anthropic" ? "bg-brand" : p === "openai" ? "bg-gold" : p === "fal" ? "bg-brand-deep" : "bg-danger"}`} style={{ width: `${((d.per[p] ?? 0) / maxDay) * 100}%` }} title={`${PROVIDER_LABEL[p]} ${usd(d.per[p] ?? 0)}`} /> : null))}
+                        {PROVIDER_ORDER.map((p) => (d.per[p] ? <span key={p} className={`h-3 ${p === "anthropic" ? "bg-brand" : p === "openai" ? "bg-gold" : p === "fal" ? "bg-brand-deep" : p === "google" ? "bg-sky-500" : "bg-danger"}`} style={{ width: `${((d.per[p] ?? 0) / maxDay) * 100}%` }} title={`${PROVIDER_LABEL[p]} ${usd(d.per[p] ?? 0)}`} /> : null))}
                       </div>
                     </td>
                     <td className="py-1.5 text-right font-mono text-xs">{d.costUsd.toFixed(2)}</td>
@@ -141,7 +141,7 @@ export default async function AdminUsage({ searchParams }: PageProps<"/admin/usa
               </tbody>
             </table>
           )}
-          <p className="hint mt-2">막대 색: <span className="text-brand">■</span> Claude <span className="text-gold">■</span> OpenAI <span className="text-brand-deep">■</span> fal <span className="text-danger">■</span> ElevenLabs</p>
+          <p className="hint mt-2">막대 색: <span className="text-brand">■</span> Claude <span className="text-gold">■</span> OpenAI <span className="text-brand-deep">■</span> fal <span className="text-sky-500">■</span> Google <span className="text-danger">■</span> ElevenLabs</p>
         </div>
 
         {/* 제작실별 · 사용자별 */}
@@ -208,6 +208,7 @@ export default async function AdminUsage({ searchParams }: PageProps<"/admin/usa
           <li>Claude 입력 ${PRICES.claudeInPerM}/M · 출력 ${PRICES.claudeOutPerM}/M · 캐시 읽기 ${PRICES.claudeCacheReadPerM}/M (PRICE_CLAUDE_IN_PER_M …)</li>
           <li>GPT Image 텍스트 입력 ${PRICES.imageTextInPerM}/M · 이미지 입력 ${PRICES.imageImageInPerM}/M · 출력 ${PRICES.imageOutPerM}/M, 토큰 정보 없으면 장당 medium ${PRICES.imagePerCall.medium} / high ${PRICES.imagePerCall.high}</li>
           <li>Kling turbo standard $0.112/초 · turbo pro $0.14/초 · standard(오디오) $0.14/초 · pro(오디오) $0.196/초(추정)</li>
+          <li>Google Veo 3.1 Lite $0.05/초 · Fast $0.10/초 (720p, 오디오 포함) · 1080p Lite $0.08 · Fast $0.12</li>
           <li>OpenAI TTS ${PRICES.ttsPerMChars}/100만 자 (PRICE_TTS_PER_M_CHARS) · ElevenLabs Music 곡당 ${PRICES.musicPerTrack} (PRICE_MUSIC_PER_TRACK)</li>
           <li>환율 KRW_PER_USD={PRICES.krwPerUsd}</li>
         </ul>

@@ -1,6 +1,6 @@
 "use client";
 import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
-import { VIDEO_MODELS, type VideoModel } from "@/lib/video-models";
+import { VIDEO_MODELS, defaultVideoModel, type VideoModel } from "@/lib/video-models";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IMAGE_TYPES, resizeImage, uploadToStorage } from "@/lib/client-upload";
@@ -37,7 +37,7 @@ type Out = {
   credits_used?: { image: number; video: number };
 };
 
-export function PracticeClient({ userId, nickname, credits, practiceCredits, initial }: { userId: string; nickname: string; credits: number; practiceCredits: PracticeCredits; initial?: JobResult | null }) {
+export function PracticeClient({ userId, nickname, credits, practiceCredits, initial, googleReady = false }: { userId: string; nickname: string; credits: number; practiceCredits: PracticeCredits; initial?: JobResult | null; googleReady?: boolean }) {
   const [photo, setPhoto] = useState<{ path: string; preview: string } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -122,7 +122,7 @@ export function PracticeClient({ userId, nickname, credits, practiceCredits, ini
           if (!step.startsWith("video")) return null;
           return <DraftCuesWhileWaiting cues={cues} setCues={setCues} duration={o.scene?.duration ?? 5} />;
         }}
-        renderWaiting={(r, resume, busy) => <WaitingPanel r={r} resume={resume} busy={busy} userId={userId} nickname={nickname} cues={cues} setCues={setCues} />}
+        renderWaiting={(r, resume, busy) => <WaitingPanel r={r} resume={resume} busy={busy} userId={userId} nickname={nickname} cues={cues} setCues={setCues} googleReady={googleReady} />}
         renderResult={({ job, assets }) => {
           const o = job.output as Out;
           const final = assets.find((a) => a.id === o.final_asset_id);
@@ -157,11 +157,11 @@ export function PracticeClient({ userId, nickname, credits, practiceCredits, ini
 
 /* ---------- 확인 대기 화면 ---------- */
 
-function WaitingPanel({ r, resume, busy, userId, nickname, cues, setCues }: { r: JobResult; resume: ResumeFn; busy: boolean; userId: string; nickname: string; cues: Cue[]; setCues: (c: Cue[]) => void }) {
+function WaitingPanel({ r, resume, busy, userId, nickname, cues, setCues, googleReady }: { r: JobResult; resume: ResumeFn; busy: boolean; userId: string; nickname: string; cues: Cue[]; setCues: (c: Cue[]) => void; googleReady: boolean }) {
   const step = r.job.step;
   const ratio = (r.job.input.ratio === "9:16" ? "9:16" : "16:9") as "16:9" | "9:16";
   if (step === "await:photo") return <PhotoReview r={r} resume={resume} busy={busy} ratio={ratio} />;
-  if (step === "await:prompt") return <PromptReview r={r} resume={resume} busy={busy} />;
+  if (step === "await:prompt") return <PromptReview r={r} resume={resume} busy={busy} googleReady={googleReady} />;
   if (step === "await:subtitle") return <SubtitlePanel r={r} resume={resume} busy={busy} userId={userId} nickname={nickname} ratio={ratio} cues={cues} setCues={setCues} />;
   return <div className="card text-sm">확인 대기 중: {step}</div>;
 }
@@ -238,16 +238,16 @@ function PhotoReview({ r, resume, busy, ratio }: { r: JobResult; resume: ResumeF
   );
 }
 
-function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; busy: boolean }) {
+function PromptReview({ r, resume, busy, googleReady }: { r: JobResult; resume: ResumeFn; busy: boolean; googleReady: boolean }) {
   const o = r.job.output as Out;
   const photo = r.assets.find((a) => a.id === o.photo_asset_id);
   const duration = (o.scene?.duration === 10 ? 10 : 5) as PracticeDuration;
   const [sceneKo, setSceneKo] = useState(o.scene?.sceneKo ?? "");
   const [dialogueKo, setDialogueKo] = useState(o.plan?.dialogue_ko ?? o.scene?.dialogueKo ?? "");
   const [prompt, setPrompt] = useState(o.plan?.prompt_en ?? "");
-  const [quality, setQuality] = useState<"standard" | "pro">("standard");
-  const [sound, setSound] = useState(false);
-  const [model, setModel] = useState<VideoModel>("kling");
+  const quality = "standard" as const; // 기준 설정: 720p
+  const sound = false; // 기준 설정: 현장음 없음
+  const [model, setModel] = useState<VideoModel>(defaultVideoModel(googleReady));
   const failed = Boolean(o.prompt_error || !o.plan?.prompt_en);
   return (
     <div className="card space-y-4">
@@ -283,19 +283,16 @@ function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; bus
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1.5 text-sm">
               <div className="flex flex-wrap gap-2">
-                {(Object.keys(VIDEO_MODELS) as VideoModel[]).map((m) => (
-                  <button key={m} type="button" onClick={() => setModel(m)} className={`rounded-lg border px-3 py-1.5 text-left text-xs ${model === m ? "border-brand bg-brand-soft" : "border-line"}`} title={VIDEO_MODELS[m].priceNote}>
-                    <span className="font-medium">{VIDEO_MODELS[m].label}</span> <span className="text-muted">{VIDEO_MODELS[m].desc}</span>
-                  </button>
-                ))}
+                {(Object.keys(VIDEO_MODELS) as VideoModel[]).map((m) => {
+                  const off = VIDEO_MODELS[m].provider === "google" && !googleReady;
+                  return (
+                    <button key={m} type="button" disabled={off} onClick={() => setModel(m)} className={`rounded-lg border px-3 py-1.5 text-left text-xs disabled:opacity-50 ${model === m ? "border-brand bg-brand-soft" : "border-line"}`} title={off ? "GOOGLE_API_KEY 필요" : VIDEO_MODELS[m].priceNote}>
+                      <span className="font-medium">{VIDEO_MODELS[m].label}</span> <span className="text-muted">{VIDEO_MODELS[m].desc} · {VIDEO_MODELS[m].priceNote}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={quality === "pro"} onChange={(e) => setQuality(e.target.checked ? "pro" : "standard")} /> 고품질 1080p (Pro, 우수작 재생성용)
-              </label>
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={sound} onChange={(e) => setSound(e.target.checked)} /> 현장음·효과음 켜기 (Kling 오디오 · 조금 느리고 비용 ↑)
-              </label>
-              <p className="hint">한국어 음성은 Kling이 지원하지 않아요. 대사·자막은 ⑤ 단계의 <b>한국어 내레이션</b>으로 넣을 수 있습니다.</p>
+              <p className="hint">720p · 현장음 없음 기준. 대사·자막의 한국어 음성은 ⑤ 단계의 <b>한국어 내레이션</b>으로 넣을 수 있습니다.</p>
             </div>
             <button type="button" className="btn-primary" disabled={busy} onClick={() => resume("start", { videoPrompt: prompt, dialogueKo: dialogueKo || "", quality, sound, model })}>④ {VIDEO_MODELS[model].label}으로 영상 만들기 (영상 1회) →</button>
           </div>
