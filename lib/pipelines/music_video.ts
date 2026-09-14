@@ -1,4 +1,5 @@
 import path from "node:path";
+import { fileName, shortName } from "@/lib/filename";
 import fs from "node:fs/promises";
 import type { Pipeline } from "@/lib/jobs";
 import { generateJSON } from "@/lib/providers/anthropic";
@@ -29,7 +30,7 @@ export const musicVideoPipeline: Pipeline = {
 
     if (step === "music") {
       const mp3 = await composeMusic(buildCompositionPlan(plan, input.genre));
-      const asset = await ctx.saveAsset({ kind: "audio", ext: "mp3", data: mp3, mime: "audio/mpeg", meta: { filename: `${plan.title}_응원송.mp3`, title: plan.title } });
+      const asset = await ctx.saveAsset({ kind: "audio", ext: "mp3", data: mp3, mime: "audio/mpeg", meta: { filename: fileName([shortName(plan.title, 8), "음원"], "mp3"), title: plan.title } });
       await ctx.update({ output: { music_asset_id: asset.id } });
       return { next: "video:start" };
     }
@@ -71,7 +72,7 @@ export const musicVideoPipeline: Pipeline = {
         const final = path.join(tmp, "final.mp4");
         await finalize(joined, final, { cues, size: SIZE_169, audio, totalSeconds: TOTAL, fadeOut: true });
         const data = await fs.readFile(final);
-        const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `${plan.title}_뮤직비디오_1분.mp4`, final: true } });
+        const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: fileName([shortName(plan.title, 8), "MV"], "mp4"), final: true } });
         await ctx.update({ output: { final_asset_id: asset.id } });
         return { done: true };
       } finally {

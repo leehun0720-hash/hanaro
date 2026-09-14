@@ -30,7 +30,7 @@ export function NewsletterClient({ projects, preselect, credits, initial }: { pr
         <div>
           <label className="label">프로젝트(소재)</label>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="input">
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.what}</option>)}
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.what ? ` · ${p.what.length > 20 ? p.what.slice(0, 20) + "…" : p.what}` : ""}</option>)}
           </select>
         </div>
         <div>

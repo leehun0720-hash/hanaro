@@ -44,7 +44,7 @@ export function MvClient({ projects, photoUrls, preselect, orgName, credits, ini
           <label className="label">프로젝트(소재) — 선택</label>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="input">
             <option value="">(선택 안 함 — 조합 자체 응원송)</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.what}</option>)}
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.what ? ` · ${p.what.length > 20 ? p.what.slice(0, 20) + "…" : p.what}` : ""}</option>)}
           </select>
           <p className="hint">선택하면 소재(행사·상품)가 가사에 살짝 들어갑니다.</p>
         </div>

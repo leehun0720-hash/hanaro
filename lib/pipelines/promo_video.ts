@@ -57,7 +57,7 @@ export const promoVideoPipeline: Pipeline = {
     if (step === "poster") {
       await ctx.update({ output: { notice: "클립 3개 완성. 마지막 장면용 포스터를 그리는 중입니다 (약 1분)." } });
       const png = await generateImage({ prompt: promoPosterPrompt(plan.poster, input.ratio, ctx.orgName), size: input.ratio === "9:16" ? IMAGE_SIZES.portrait916 : IMAGE_SIZES.landscape169, quality: "high" });
-      const asset = await ctx.saveAsset({ kind: "image", ext: "png", data: png, mime: "image/png", meta: { filename: "홍보영상_CTA포스터.png", intermediate: true } });
+      const asset = await ctx.saveAsset({ kind: "image", ext: "png", data: png, mime: "image/png", meta: { filename: "포스터.png", intermediate: true } });
       await ctx.update({ output: { poster_asset_id: asset.id } });
       return { next: "compose" };
     }
@@ -110,7 +110,7 @@ export const promoVideoPipeline: Pipeline = {
         const final = path.join(tmp, "final.mp4");
         await finalize(joined, final, { cues, size, totalSeconds: 30, fadeOut: true, keepSourceAudio: input.sound.ambient, narration });
         const data = await fs.readFile(final);
-        const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `홍보영상_30초_${input.ratio.replace(":", "x")}.mp4`, final: true } });
+        const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `홍보영상_${input.ratio.replace(":", "x")}.mp4`, final: true } });
         await ctx.update({ output: { final_asset_id: asset.id } });
         return { done: true };
       } finally {

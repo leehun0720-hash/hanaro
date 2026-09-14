@@ -34,7 +34,7 @@ export function DocumentClient({ projects, preselect, orgName, credits, initial 
           <label className="label">프로젝트(소재) — 선택</label>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="input">
             <option value="">(선택 안 함)</option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name} — {p.what}</option>)}
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}{p.what ? ` · ${p.what.length > 20 ? p.what.slice(0, 20) + "…" : p.what}` : ""}</option>)}
           </select>
         </div>
         <div>

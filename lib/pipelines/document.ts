@@ -1,6 +1,7 @@
 import type { Pipeline } from "@/lib/jobs";
+import { fileName, shortName } from "@/lib/filename";
 import { generateJSON } from "@/lib/providers/anthropic";
-import { documentInputSchema, documentOutputSchema, documentSystemPrompt, documentUserPrompt, type DocumentOutput } from "@/lib/prompts/document";
+import { documentInputSchema, documentOutputSchema, documentSystemPrompt, documentUserPrompt, DOC_TYPES, type DocumentOutput } from "@/lib/prompts/document";
 import { buildHwpx, type DocumentJSON } from "@/lib/hwpx/build";
 
 /** 문서: plan(Claude → 구조화 JSON) → build(HWPX 조립·저장) */
@@ -30,8 +31,7 @@ export const documentPipeline: Pipeline = {
         closing: doc.closing || undefined,
       };
       const buf = await buildHwpx(json);
-      const safeTitle = doc.title.replace(/[\\/:*?"<>|]/g, "").slice(0, 40);
-      const asset = await ctx.saveAsset({ kind: "hwpx", ext: "hwpx", data: buf, mime: "application/hwp+zip", meta: { filename: `${safeTitle}.hwpx`, docType: input.docType } });
+      const asset = await ctx.saveAsset({ kind: "hwpx", ext: "hwpx", data: buf, mime: "application/hwp+zip", meta: { filename: fileName([DOC_TYPES[input.docType].label, shortName(doc.title, 10)], "hwpx"), docType: input.docType } });
       await ctx.update({ output: { hwpx_asset_id: asset.id } });
       return { done: true };
     }

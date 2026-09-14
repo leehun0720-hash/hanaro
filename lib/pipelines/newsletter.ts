@@ -25,7 +25,7 @@ export const newsletterPipeline: Pipeline = {
       if (!draft) throw new Error("원고가 없습니다. 다시 시도해 주세요.");
       const prompt = newsletterImagePrompt(draft.image, ctx.orgName);
       const png = await generateImage({ prompt, size: IMAGE_SIZES.portrait34, quality: "high" });
-      const asset = await ctx.saveAsset({ kind: "image", ext: "png", data: png, mime: "image/png", meta: { filename: "뉴스레터_카톡용.png", prompt } });
+      const asset = await ctx.saveAsset({ kind: "image", ext: "png", data: png, mime: "image/png", meta: { filename: "뉴스레터.png", prompt } });
       await ctx.update({ output: { image_asset_id: asset.id } });
       return { done: true };
     }

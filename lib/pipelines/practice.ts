@@ -118,7 +118,7 @@ export async function completePracticeVideo(ctx: JobContext, videoUrl: string): 
     const file = path.join(tmp, "clip.mp4");
     await downloadTo(videoUrl, file); // 결과 URL은 만료되므로 즉시 Storage로 복사 (SPEC §3.3)
     const data = await fs.readFile(file);
-    const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: "실습_영상(자막없음).mp4", clip: true }, deleteAfter: deleteAfter() });
+    const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: "실습_원본.mp4", clip: true }, deleteAfter: deleteAfter() });
     const duration = o.scene?.duration ?? 5;
     await ctx.update({ output: { clip_asset_id: asset.id, cues: o.cues?.length ? o.cues : defaultCues(o.plan?.dialogue_ko, duration), queue_position: null, eta_seconds: null, notice: null } });
   } finally {
@@ -253,7 +253,7 @@ export const practicePipeline: Pipeline = {
         await finalize(norm, final, { cues: o.cues ?? [], size, totalSeconds: duration, fadeOut: false, style: normalizeStyle(o.subtitle_style), keepSourceAudio: true, narration });
         const version = (o.version ?? 0) + 1;
         const data = await fs.readFile(final);
-        const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `실습영상_자막_v${version}.mp4`, final: true, version, server: true }, deleteAfter: deleteAfter() });
+        const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `실습_자막_v${version}.mp4`, final: true, version, server: true }, deleteAfter: deleteAfter() });
         await ctx.update({ output: { final_asset_id: asset.id, version, notice: null } });
       } finally {
         await cleanup(tmp);
@@ -342,7 +342,7 @@ export const practicePipeline: Pipeline = {
           const outFile = path.join(tmp, "narration.mp3");
           await buildNarrationTrack(parts, duration, outFile);
           const mp3 = await fs.readFile(outFile);
-          const asset = await ctx.saveAsset({ kind: "audio", ext: "mp3", data: mp3, mime: "audio/mpeg", meta: { filename: "실습_내레이션.mp3", narration: true, intermediate: true }, deleteAfter: deleteAfter() });
+          const asset = await ctx.saveAsset({ kind: "audio", ext: "mp3", data: mp3, mime: "audio/mpeg", meta: { filename: "내레이션.mp3", narration: true, intermediate: true }, deleteAfter: deleteAfter() });
           await addCost(ctx, ttsCostUsd(chars));
           await ctx.update({ output: { cues: cs.cues, narration_asset_id: asset.id, narration_voice: voice ?? "nova" } });
         } finally {
@@ -377,7 +377,7 @@ export const practicePipeline: Pipeline = {
           const size = obj?.[0]?.metadata?.size as number | undefined;
           const { data: asset } = await adminClient()
             .from("assets")
-            .insert({ user_id: ctx.job.user_id, job_id: ctx.job.id, kind: "video", storage_path: p, mime: "video/mp4", size: size ?? null, meta: { filename: `실습영상_최종.mp4`, final: true, browser: true }, delete_after: deleteAfter() })
+            .insert({ user_id: ctx.job.user_id, job_id: ctx.job.id, kind: "video", storage_path: p, mime: "video/mp4", size: size ?? null, meta: { filename: `실습_최종.mp4`, final: true, browser: true }, delete_after: deleteAfter() })
             .select("id")
             .single();
           if (asset) await ctx.update({ output: { final_asset_id: asset.id } });

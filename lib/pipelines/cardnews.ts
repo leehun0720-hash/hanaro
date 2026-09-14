@@ -47,7 +47,7 @@ export const cardnewsPipeline: Pipeline = {
         if (data) zip.file(String((a.meta as { filename?: string }).filename ?? "card.png"), Buffer.from(await data.arrayBuffer()));
       }
       const buf = await zip.generateAsync({ type: "nodebuffer" });
-      const z = await ctx.saveAsset({ kind: "zip", ext: "zip", data: buf, mime: "application/zip", meta: { filename: "카드뉴스_전체.zip" } });
+      const z = await ctx.saveAsset({ kind: "zip", ext: "zip", data: buf, mime: "application/zip", meta: { filename: "카드뉴스.zip" } });
       await ctx.update({ output: { zip_asset_id: z.id } });
       return { done: true };
     }
