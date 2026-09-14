@@ -59,7 +59,7 @@ export function ActiveJobsTicker() {
                 <li key={j.id} className="px-4 py-2.5 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium">{j.label}</span>
-                    <span className={`badge ${j.status === "waiting" ? "bg-gold-soft text-[#7a5d00]" : "bg-brand-soft text-brand-deep"}`}>{j.status === "waiting" ? "확인 필요" : stepKo || "진행 중"}</span>
+                    <span className={`badge ${j.status === "waiting" ? "bg-gold-soft text-gold-deep" : "bg-brand-soft text-brand-deep"}`}>{j.status === "waiting" ? "확인 필요" : stepKo || "진행 중"}</span>
                   </div>
                   {j.notice && <p className="mt-1 text-muted">{j.notice}</p>}
                   {!here && <Link href={j.href} className="mt-1 inline-block text-brand underline">{j.status === "waiting" ? "이어서 하기 →" : "진행 보기 →"}</Link>}

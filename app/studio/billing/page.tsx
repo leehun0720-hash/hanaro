@@ -44,7 +44,7 @@ export default async function BillingPage({ searchParams }: PageProps<"/studio/b
 
       <section className="card flex flex-wrap items-center justify-between gap-4 bg-gold-soft border-gold/40">
         <div>
-          <p className="text-sm text-[#7a5d00]">내 ro</p>
+          <p className="text-sm text-gold-deep">내 ro</p>
           <p className="display text-4xl font-bold text-brand-deep">{total.toLocaleString()} ro</p>
           <p className="hint">월 지급분 {profile.credits.toLocaleString()} (다음 결제일에 재설정) · 충전분 {profile.banana_purchased.toLocaleString()} (무기한)</p>
         </div>

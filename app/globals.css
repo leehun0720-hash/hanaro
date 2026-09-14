@@ -11,6 +11,7 @@
   --brand-soft: #e6f2ea;
   --gold: #c9a227;       /* 가을 골드 */
   --gold-soft: #fbf3d9;
+  --gold-deep: #7a5d00;   /* 강조 배지 글자색 */
   --danger: #b42318;
   --danger-soft: #fee4e2;
 }
@@ -26,6 +27,7 @@
   --color-brand-soft: var(--brand-soft);
   --color-gold: var(--gold);
   --color-gold-soft: var(--gold-soft);
+  --color-gold-deep: var(--gold-deep);
   --color-danger: var(--danger);
   --color-danger-soft: var(--danger-soft);
   --font-sans: var(--font-noto-kr), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;

@@ -2,6 +2,7 @@ import { cache } from "react";
 import { adminClient } from "@/lib/supabase/admin";
 import { supabaseConfigured } from "@/lib/auth";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
+import { DEFAULT_THEME, isThemeId, type ThemeId } from "@/lib/themes";
 
 /** 관리자가 바꿀 수 있는 사이트 이름·로고 (site_settings 1행). 마이그레이션 0007 */
 export type Branding = {
@@ -12,11 +13,12 @@ export type Branding = {
   logoPath: string | null; // storage(branding 버킷) 경로
   logoUrl: string | null; // 공개 URL (캐시 무효화용 ?v= 포함)
   updatedAt: string | null;
+  theme: ThemeId;
 };
 
-export const DEFAULT_BRANDING: Branding = { name: SITE_NAME, byline: "by tenai", tagline: SITE_DESCRIPTION, owner: "tenai", logoPath: null, logoUrl: null, updatedAt: null };
+export const DEFAULT_BRANDING: Branding = { name: SITE_NAME, byline: "by tenai", tagline: SITE_DESCRIPTION, owner: "tenai", logoPath: null, logoUrl: null, updatedAt: null, theme: DEFAULT_THEME };
 
-type Row = { name: string; byline: string; tagline: string; owner: string; logo_path: string | null; updated_at: string };
+type Row = { name: string; byline: string; tagline: string; owner: string; logo_path: string | null; updated_at: string; theme?: string | null };
 
 let memo: { at: number; v: Branding } | null = null;
 const TTL_MS = 30_000;
@@ -27,11 +29,11 @@ export const getBranding = cache(async (): Promise<Branding> => {
   if (!supabaseConfigured()) return DEFAULT_BRANDING;
   try {
     const db = adminClient();
-    const { data, error } = await db.from("site_settings").select("name, byline, tagline, owner, logo_path, updated_at").eq("id", 1).maybeSingle();
+    const { data, error } = await db.from("site_settings").select("*").eq("id", 1).maybeSingle();
     if (error || !data) return DEFAULT_BRANDING;
     const r = data as Row;
     const logoUrl = r.logo_path ? `${db.storage.from("branding").getPublicUrl(r.logo_path).data.publicUrl}?v=${Date.parse(r.updated_at) || 0}` : null;
-    const v: Branding = { name: r.name || DEFAULT_BRANDING.name, byline: r.byline ?? "", tagline: r.tagline || DEFAULT_BRANDING.tagline, owner: r.owner || DEFAULT_BRANDING.owner, logoPath: r.logo_path, logoUrl, updatedAt: r.updated_at };
+    const v: Branding = { name: r.name || DEFAULT_BRANDING.name, byline: r.byline ?? "", tagline: r.tagline || DEFAULT_BRANDING.tagline, owner: r.owner || DEFAULT_BRANDING.owner, logoPath: r.logo_path, logoUrl, updatedAt: r.updated_at, theme: isThemeId(r.theme) ? r.theme : DEFAULT_THEME };
     memo = { at: Date.now(), v };
     return v;
   } catch {

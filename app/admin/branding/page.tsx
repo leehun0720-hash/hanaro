@@ -1,6 +1,7 @@
 import { Alert } from "@/components/Alert";
 import { getBranding } from "@/lib/branding";
 import { removeLogo, saveBranding } from "./actions";
+import { THEMES, type ThemeId } from "@/lib/themes";
 
 export const metadata = { title: "관리자 · 브랜딩" };
 export const dynamic = "force-dynamic";
@@ -38,6 +39,27 @@ export default async function AdminBranding({ searchParams }: PageProps<"/admin/
         </div>
         <div><label className="label">소개 문구 (검색 결과·공유 카드 설명)</label><textarea name="tagline" defaultValue={b.tagline} maxLength={200} className="input min-h-20" required /></div>
         <div><label className="label">저작권·라이선스 보유자</label><input name="owner" defaultValue={b.owner} maxLength={60} className="input" required /><p className="hint">푸터에 “© {new Date().getFullYear()} {b.owner}. All rights reserved.”로 표시됩니다.</p></div>
+        <div>
+          <label className="label">색 테마</label>
+          <div className="grid gap-2 sm:grid-cols-5">
+            {(Object.keys(THEMES) as ThemeId[]).map((id) => {
+              const t = THEMES[id];
+              return (
+                <label key={id} className={`cursor-pointer rounded-lg border p-3 text-sm ${b.theme === id ? "border-brand bg-brand-soft" : "border-line"}`}>
+                  <input type="radio" name="theme" value={id} defaultChecked={b.theme === id} className="sr-only" />
+                  <span className="flex gap-1">
+                    <span className="h-6 w-6 rounded-full" style={{ background: t.colors.brand }} />
+                    <span className="h-6 w-6 rounded-full" style={{ background: t.colors.brandDeep }} />
+                    <span className="h-6 w-6 rounded-full" style={{ background: t.colors.accent }} />
+                  </span>
+                  <span className="mt-2 block font-medium">{t.label}</span>
+                  <span className="block text-[11px] text-muted">{t.desc}</span>
+                </label>
+              );
+            })}
+          </div>
+          <p className="hint">버튼·링크·히어로 배경·배지·공유 이미지 색이 함께 바뀝니다.</p>
+        </div>
         <div>
           <label className="label" htmlFor="logo">로고 이미지 (선택 · PNG/JPG/WebP/SVG · 1MB 이하)</label>
           <input id="logo" name="logo" type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" className="input" />

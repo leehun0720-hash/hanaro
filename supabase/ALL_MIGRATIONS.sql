@@ -537,3 +537,7 @@ create policy "branding public read" on storage.objects for select using (bucket
 -- ---------- 보관함 삭제 (작업 기록은 남기고 목록에서만 숨김) ----------
 alter table jobs add column if not exists deleted_at timestamptz;
 create index if not exists jobs_user_deleted_idx on jobs (user_id, deleted_at);
+
+-- ===== 0008_theme.sql =====
+-- 0008: 사이트 색 테마 (관리자 브랜딩에서 선택: green·navy·purple·red·pink)
+alter table site_settings add column if not exists theme text not null default 'green';

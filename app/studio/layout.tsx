@@ -29,14 +29,14 @@ export default async function StudioLayout({ children }: { children: React.React
           <div className="md:hidden"><Logo href="/studio" /></div>
           <div className="hidden text-sm text-muted md:block">{profile.org_name ? `${profile.org_name} · ` : ""}{profile.name || profile.email}</div>
           <div className="flex items-center gap-3">
-            <Link href="/studio/billing" className="badge bg-gold-soft text-[#7a5d00]">{totalBananas(profile).toLocaleString()} ro</Link>
+            <Link href="/studio/billing" className="badge bg-gold-soft text-gold-deep">{totalBananas(profile).toLocaleString()} ro</Link>
             <span className={`badge ${subscribed ? "bg-brand-soft text-brand-deep" : "bg-gray-100 text-muted"}`}>{subscribed ? "구독 중" : "미구독"}</span>
             <form action={signOut}><button className="text-sm text-muted hover:text-foreground">로그아웃</button></form>
           </div>
         </header>
 
         {!subscribed && totalBananas(profile) < 8 && (
-          <div className="border-b border-gold/40 bg-gold-soft px-6 py-2 text-sm text-[#7a5d00]">
+          <div className="border-b border-gold/40 bg-gold-soft px-6 py-2 text-sm text-gold-deep">
             ro가 부족하면 <Link href="/studio/billing" className="font-semibold underline">충전</Link>하거나 월 정액을 시작하세요. 가입 보너스 30개로 문서·뉴스레터를 먼저 만들어 볼 수 있습니다.
           </div>
         )}

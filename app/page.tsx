@@ -71,7 +71,7 @@ export default async function Home() {
               추석 선물세트 예약 한 줄이면 됩니다. 기획서와 뉴스레터, 카드뉴스, 30초 홍보영상, 1분 응원송 뮤직비디오까지 — 외주 없이, 우리 손으로, 오늘 안에.
             </p>
             <div className="rise rise-4 mt-9 flex flex-wrap gap-3">
-              <Link href={cta.href} className="btn bg-gold text-brand-deep hover:bg-[#e0b93a] px-6 py-3 text-base font-semibold">{cta.label}</Link>
+              <Link href={cta.href} className="btn bg-gold text-brand-deep hover:brightness-95 px-6 py-3 text-base font-semibold">{cta.label}</Link>
               <Link href="/pricing" className="btn border border-white/30 text-white hover:bg-white/10 px-6 py-3 text-base">요금 안내</Link>
             </div>
             <p className="rise rise-5 mt-6 text-xs text-white/50">개인정보는 입력하지 않습니다 · AI 결과는 초안, 발송은 사람이 · 사진은 동의 받은 것만</p>

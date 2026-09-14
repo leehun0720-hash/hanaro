@@ -63,7 +63,7 @@ export function KeyRow({ row }: { row: SecretStatus }) {
   const badge =
     row.source === "db" ? <span className="badge bg-brand-soft text-brand-deep">관리자 입력</span>
     : row.source === "broken" ? <span className="badge bg-danger-soft text-danger">다시 입력 필요 (암호화 키 변경)</span>
-    : row.source === "env" ? <span className="badge bg-gold-soft text-[#7a5d00]">환경변수</span>
+    : row.source === "env" ? <span className="badge bg-gold-soft text-gold-deep">환경변수</span>
     : <span className="badge bg-danger-soft text-danger">미설정</span>;
 
   return (

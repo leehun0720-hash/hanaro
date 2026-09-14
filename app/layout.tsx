@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { SITE_URL } from "@/lib/site";
 import { fullName, getBranding } from "@/lib/branding";
+import { THEMES, themeVars } from "@/lib/themes";
 import { Noto_Sans_KR, Gowun_Batang } from "next/font/google";
 import "./globals.css";
 
@@ -32,15 +33,15 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export const viewport: Viewport = {
-  themeColor: "#0b6b3a",
-  width: "device-width",
-  initialScale: 1,
-};
+export async function generateViewport(): Promise<Viewport> {
+  const b = await getBranding();
+  return { themeColor: THEMES[b.theme].colors.brand, width: "device-width", initialScale: 1 };
+}
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const b = await getBranding();
   return (
-    <html lang="ko" className={`${notoSansKr.variable} ${gowunBatang.variable} h-full antialiased`}>
+    <html lang="ko" className={`${notoSansKr.variable} ${gowunBatang.variable} h-full antialiased`} style={themeVars(b.theme) as React.CSSProperties}>
       <body className="min-h-full flex flex-col bg-[var(--background)] text-[var(--foreground)]">{children}</body>
     </html>
   );

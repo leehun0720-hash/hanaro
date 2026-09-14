@@ -48,7 +48,7 @@ export default async function LibraryPage({ searchParams }: PageProps<"/studio/l
                     <span className="ml-2 text-xs text-muted">{new Date(j.created_at).toLocaleString("ko-KR")} · ro {j.credits}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-[#7a5d00]"}`}>{JOB_STATUS_LABEL[j.status]}</span>
+                    <span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-gold-deep"}`}>{JOB_STATUS_LABEL[j.status]}</span>
                     {!active && (
                       <ConfirmForm action={deleteJob} message={`이 ${JOB_TYPE_LABEL[j.type]} 작업의 파일 ${j.assets?.length ?? 0}개를 모두 삭제할까요? 복구할 수 없습니다.`}>
                         <input type="hidden" name="jobId" value={j.id} />

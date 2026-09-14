@@ -33,7 +33,7 @@ export default async function AdminJobs({ searchParams }: PageProps<"/admin/jobs
                 <td className="px-4 py-2 text-xs">{new Date(j.created_at).toLocaleString("ko-KR")}</td>
                 <td className="px-4 py-2 text-xs">{j.profiles?.name || j.profiles?.email}</td>
                 <td className="px-4 py-2">{JOB_TYPE_LABEL[j.type]}</td>
-                <td className="px-4 py-2"><span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-[#7a5d00]"}`}>{JOB_STATUS_LABEL[j.status]}</span></td>
+                <td className="px-4 py-2"><span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-gold-deep"}`}>{JOB_STATUS_LABEL[j.status]}</span></td>
                 <td className="px-4 py-2 text-xs">{j.step ?? "-"}</td>
                 <td className="px-4 py-2">{j.credits}</td>
                 <td className="px-4 py-2 text-xs text-danger max-w-sm">{j.error ?? ""}</td>

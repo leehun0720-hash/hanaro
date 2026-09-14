@@ -36,7 +36,7 @@ export default async function PricingPage() {
           <div className="grid gap-4 md:grid-cols-5">
             {packages.map((pk) => (
               <div key={pk.id} className={`card relative flex flex-col ${pk.id === "basic" ? "border-brand" : ""}`}>
-                {pk.id === "basic" && <span className="badge absolute -top-2.5 left-4 bg-gold-soft text-[#7a5d00]">가장 인기</span>}
+                {pk.id === "basic" && <span className="badge absolute -top-2.5 left-4 bg-gold-soft text-gold-deep">가장 인기</span>}
                 <span className="badge absolute -top-2.5 right-4 bg-danger-soft text-danger">-{discountPct(pk)}%</span>
                 <h3 className="font-semibold">{pk.name}</h3>
                 <p className="display mt-2 text-3xl font-bold text-brand-deep">{pk.bananas.toLocaleString()}<span className="ml-1 text-sm font-medium text-muted">ro</span></p>

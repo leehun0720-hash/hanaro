@@ -5,12 +5,14 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/auth";
 import { adminClient } from "@/lib/supabase/admin";
 import { getBranding, invalidateBranding } from "@/lib/branding";
+import { isThemeId } from "@/lib/themes";
 
 const schema = z.object({
   name: z.string().trim().min(1, "이름을 입력하세요.").max(40),
   byline: z.string().trim().max(40).default(""),
   tagline: z.string().trim().min(1, "소개 문구를 입력하세요.").max(200),
   owner: z.string().trim().min(1, "저작권 표기를 입력하세요.").max(60),
+  theme: z.string().refine(isThemeId, "테마를 선택하세요."),
 });
 
 const LOGO_TYPES: Record<string, string> = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp", "image/svg+xml": "svg" };
@@ -45,7 +47,7 @@ export async function saveBranding(formData: FormData) {
   }
 
   const { error } = await db.from("site_settings").upsert({ id: 1, ...patch }, { onConflict: "id" });
-  if (error) fail(`저장 실패: ${error.message} (마이그레이션 0007을 실행했는지 확인)`);
+  if (error) fail(`저장 실패: ${error.message} (마이그레이션 0007·0008을 실행했는지 확인)`);
   afterChange();
   redirect("/admin/branding?ok=1");
 }

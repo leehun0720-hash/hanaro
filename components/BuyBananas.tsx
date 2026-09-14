@@ -57,7 +57,7 @@ export function BuyBananas({ packages, customerKey, email, name }: Props) {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{p.name}</span>
-                {p.id === "basic" && <span className="badge bg-gold-soft text-[#7a5d00]">가장 인기</span>}
+                {p.id === "basic" && <span className="badge bg-gold-soft text-gold-deep">가장 인기</span>}
               </div>
               <div className="mt-0.5 text-sm"><b className="text-brand-deep">{p.bananas.toLocaleString()}</b> ro · <b>{p.price_krw.toLocaleString()}원</b> <s className="text-xs text-muted">{p.list_price_krw.toLocaleString()}원</s></div>
               {p.description && <div className="text-xs text-muted">{p.description}</div>}

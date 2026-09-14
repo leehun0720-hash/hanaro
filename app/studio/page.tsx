@@ -84,7 +84,7 @@ export default async function StudioHome({ searchParams }: PageProps<"/studio">)
             {(jobs as Job[]).map((j) => (
               <div key={j.id} className="flex items-center justify-between px-5 py-3 text-sm">
                 <div><span className="font-medium">{JOB_TYPE_LABEL[j.type]}</span><span className="ml-2 text-muted">{new Date(j.created_at).toLocaleString("ko-KR")}</span></div>
-                <span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-[#7a5d00]"}`}>{JOB_STATUS_LABEL[j.status]}</span>
+                <span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-gold-deep"}`}>{JOB_STATUS_LABEL[j.status]}</span>
               </div>
             ))}
           </div>
