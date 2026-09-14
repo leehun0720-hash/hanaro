@@ -55,33 +55,59 @@ async function logClaudeUsage(res: { model?: string; usage?: { input_tokens?: nu
   await recordUsage({ provider: "anthropic", product: res.model ?? CLAUDE_MODEL, unit: "tokens", quantity: inTok + outTok + cacheRead + cacheWrite, costUsd: cost, meta: { kind, input_tokens: inTok, output_tokens: outTok, cache_read: cacheRead, cache_write: cacheWrite } });
 }
 
+const MAX_TOKENS_CAP = 32000;
+
+/**
+ * 구조화 출력(JSON). SDK의 .parse()는 stop_reason 확인 전에 JSON을 파싱하다 잘린 응답에서
+ * "Failed to parse structured output: Unexpected end of JSON input"으로 실패하므로, 직접 create → stop_reason 확인 → 파싱한다.
+ * max_tokens에 걸리면(adaptive thinking이 예산을 많이 쓸 때) 한도를 두 배로 올려 한 번 더 시도한다.
+ */
 export async function generateJSON<S extends z.ZodType>(
   schema: S,
   opts: { system: string; user: string; effort?: Effort; maxTokens?: number; images?: ImageInput[] },
 ): Promise<z.infer<S>> {
-  const res = await withRetry(
-    async () =>
-      (await client()).beta.messages.parse({
-        model: CLAUDE_MODEL,
-        max_tokens: opts.maxTokens ?? 16000,
-        betas: ["server-side-fallback-2026-07-01"],
-        fallbacks: "default",
-        thinking: { type: "adaptive" },
-        output_config: { effort: opts.effort ?? "high", format: betaZodOutputFormat(schema) },
-        system: opts.system,
-        messages: [{ role: "user", content: userContent(opts.user, opts.images) }],
-      }),
-    { tries: 3, label: "claude" },
-  );
-  await logClaudeUsage(res, "json");
+  const format = betaZodOutputFormat(schema);
+  let maxTokens = Math.min(MAX_TOKENS_CAP, opts.maxTokens ?? 20000);
+  for (let attempt = 0; ; attempt++) {
+    const res = await withRetry(
+      async () =>
+        (await client()).beta.messages.create({
+          model: CLAUDE_MODEL,
+          max_tokens: maxTokens,
+          betas: ["server-side-fallback-2026-07-01"],
+          fallbacks: "default",
+          thinking: { type: "adaptive" },
+          output_config: { effort: opts.effort ?? "high", format: { type: "json_schema", schema: format.schema } },
+          system: opts.system,
+          messages: [{ role: "user", content: userContent(opts.user, opts.images) }],
+        }),
+      { tries: 3, label: "claude" },
+    );
+    await logClaudeUsage(res, "json");
 
-  if (res.stop_reason === "refusal") {
-    const cat = res.stop_details && "category" in res.stop_details ? String(res.stop_details.category ?? "") : "";
-    throw new ClaudeRefusal(cat || undefined);
+    if (res.stop_reason === "refusal") {
+      const cat = res.stop_details && "category" in res.stop_details ? String(res.stop_details.category ?? "") : "";
+      throw new ClaudeRefusal(cat || undefined);
+    }
+    if (res.stop_reason === "max_tokens") {
+      if (attempt === 0 && maxTokens < MAX_TOKENS_CAP) {
+        maxTokens = Math.min(MAX_TOKENS_CAP, maxTokens * 2);
+        continue;
+      }
+      throw new Error("AI 응답이 너무 길어 잘렸습니다. 분량을 줄여 다시 시도해 주세요.");
+    }
+    const text = res.content.filter((b) => b.type === "text").map((b) => (b as { text: string }).text).join("").trim();
+    if (!text) throw new Error("AI 응답이 비어 있습니다. 다시 시도해 주세요.");
+    let json: unknown;
+    try {
+      json = JSON.parse(text);
+    } catch {
+      throw new Error("AI 응답을 해석하지 못했습니다(JSON 형식 오류). 다시 시도해 주세요.");
+    }
+    const parsed = schema.safeParse(json);
+    if (!parsed.success) throw new Error(`AI 응답이 형식에 맞지 않습니다: ${parsed.error.issues[0]?.message ?? "확인 필요"}. 다시 시도해 주세요.`);
+    return parsed.data;
   }
-  if (res.stop_reason === "max_tokens") throw new Error("AI 응답이 너무 길어 잘렸습니다. 분량을 줄여 다시 시도해 주세요.");
-  if (!res.parsed_output) throw new Error("AI 응답을 해석하지 못했습니다. 다시 시도해 주세요.");
-  return res.parsed_output;
 }
 
 export async function generateText(opts: { system: string; user: string; effort?: Effort; maxTokens?: number; images?: ImageInput[] }): Promise<string> {

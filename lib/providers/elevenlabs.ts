@@ -8,7 +8,8 @@ import { requireSecret } from "@/lib/secrets";
 import { PRICES, recordUsage } from "@/lib/usage";
 
 const BASE = "https://api.elevenlabs.io/v1";
-export const MUSIC_MODEL = process.env.ELEVENLABS_MUSIC_MODEL ?? "music_v2";
+/** 섹션(sections) 기반 composition_plan은 music_v1 형식이다. music_v2/v2_5는 다른 플랜 형식을 요구해 "Invalid type of composition_plan" 오류가 난다 */
+export const MUSIC_MODEL = process.env.ELEVENLABS_MUSIC_MODEL ?? "music_v1";
 
 export type CompositionSection = {
   section_name: string;
@@ -24,13 +25,13 @@ export type CompositionPlan = {
   sections: CompositionSection[];
 };
 
-export async function composeMusic(plan: CompositionPlan): Promise<Buffer> {
+export async function composeMusic(plan: CompositionPlan, modelId: string = MUSIC_MODEL): Promise<Buffer> {
   return withRetry(
     async () => {
       const r = await fetch(`${BASE}/music?output_format=mp3_44100_128`, {
         method: "POST",
         headers: { "xi-api-key": (await requireSecret("ELEVENLABS_API_KEY")).trim(), "Content-Type": "application/json", Accept: "audio/mpeg" },
-        body: JSON.stringify({ composition_plan: plan, model_id: MUSIC_MODEL }),
+        body: JSON.stringify({ composition_plan: plan, model_id: modelId }),
         cache: "no-store",
       });
       if (!r.ok) {
@@ -39,11 +40,13 @@ export async function composeMusic(plan: CompositionPlan): Promise<Buffer> {
           const j = (await r.json()) as { detail?: { message?: string } | string };
           msg = typeof j.detail === "string" ? j.detail : j.detail?.message ?? msg;
         } catch {}
+        // 모델이 이 플랜 형식을 받지 않으면 v1로 한 번 더
+        if (r.status === 400 && /composition_plan/i.test(msg) && modelId !== "music_v1") return composeMusic(plan, "music_v1");
         throw new ProviderHttpError(r.status, `음원 생성 실패: ${msg}`);
       }
       const buf = Buffer.from(await r.arrayBuffer());
       if (buf.length < 1000) throw new Error("음원 생성 결과가 비어 있습니다.");
-      await recordUsage({ provider: "elevenlabs", product: MUSIC_MODEL, unit: "tracks", quantity: 1, costUsd: PRICES.musicPerTrack, meta: { bytes: buf.length } });
+      await recordUsage({ provider: "elevenlabs", product: modelId, unit: "tracks", quantity: 1, costUsd: PRICES.musicPerTrack, meta: { bytes: buf.length } });
       return buf;
     },
     { tries: 3, label: "elevenlabs" },

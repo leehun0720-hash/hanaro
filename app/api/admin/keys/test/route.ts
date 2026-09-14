@@ -1,15 +1,26 @@
 import { NextResponse } from "next/server";
+import { buildInstrumentalPlan, composeMusic, MUSIC_MODEL } from "@/lib/providers/elevenlabs";
 import { getProfile } from "@/lib/auth";
 import { getSecret, isSecretName, type SecretName } from "@/lib/secrets";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 /**
  * 관리자 → API 키 연결 테스트. 과금이 없거나 거의 없는 호출만 사용한다.
  *  - openai: GET /v1/models · anthropic: GET /v1/models · elevenlabs: GET /v1/user
  *  - fal: 존재하지 않는 요청 상태 조회 → 401/403이면 키 오류, 그 외(404·422)면 인증 통과
  */
+/** 3초짜리 무가사 음원을 실제로 만들어 본다 — 뮤직 권한·플랜·플랜 형식(music_v1)을 한 번에 검증 (크레딧 소량 사용) */
+async function musicProbe(): Promise<{ ok: boolean; message: string }> {
+  try {
+    const buf = await composeMusic(buildInstrumentalPlan("warm acoustic, gentle", 3));
+    return { ok: true, message: `음원 생성 테스트 성공 (${MUSIC_MODEL}, ${Math.round(buf.length / 1024)}KB). 뮤직비디오를 만들 수 있어요.` };
+  } catch (e) {
+    return { ok: false, message: `음원 생성 테스트 실패: ${e instanceof Error ? e.message : String(e)} — 키 권한에 'Music'이 있는지, 플랜이 음악 생성을 지원하는지 확인하세요.` };
+  }
+}
+
 export async function POST(request: Request) {
   const me = await getProfile();
   if (!me || me.role !== "admin") return NextResponse.json({ error: "관리자만 할 수 있어요." }, { status: 403 });
@@ -34,7 +45,8 @@ export async function POST(request: Request) {
         r = await fetch("https://api.elevenlabs.io/v1/user/subscription", { headers: { "xi-api-key": key }, signal: ctl.signal });
         if (r.ok) {
           const sub = (await r.json().catch(() => ({}))) as { tier?: string; character_count?: number; character_limit?: number };
-          return NextResponse.json({ ok: true, message: `ElevenLabs 연결 성공 · 플랜 ${sub.tier ?? "?"} · 사용 ${sub.character_count ?? "?"}/${sub.character_limit ?? "?"} 문자.` });
+          const music = await musicProbe();
+          return NextResponse.json({ ok: music.ok, message: `ElevenLabs 연결 성공 · 플랜 ${sub.tier ?? "?"} · 사용 ${sub.character_count ?? "?"}/${sub.character_limit ?? "?"} 문자. ${music.message}` });
         }
         {
           const body = await safeText(r);
@@ -44,7 +56,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ ok: false, message: `ElevenLabs가 키를 거부했어요(invalid_api_key).${hint}` });
           }
           if (!key.startsWith("sk_")) return NextResponse.json({ ok: false, message: "ElevenLabs API 키는 sk_로 시작해요. 키 생성 직후 표시되는 전체 값을 넣어 주세요." });
-          return NextResponse.json({ ok: true, message: `키 인증은 통과했지만 '사용자 정보 읽기' 권한이 없는 제한 키예요 (응답 ${r.status}). 키 권한에 '뮤직 생성'이 있으면 뮤직비디오는 정상 동작합니다. 상세: ${elDetail(body)}` });
+          const music = await musicProbe();
+          return NextResponse.json({ ok: music.ok, message: `키 인증 통과 ('사용자 정보 읽기' 권한 없는 제한 키, 응답 ${r.status}). ${music.message}` });
         }
       }
       case "FAL_KEY":
@@ -61,15 +74,6 @@ export async function POST(request: Request) {
   }
 }
 
-/** ElevenLabs 오류 본문에서 사람이 읽을 메시지만 */
-function elDetail(body: string): string {
-  try {
-    const j = JSON.parse(body) as { detail?: { message?: string; status?: string } | string };
-    if (typeof j.detail === "string") return j.detail;
-    if (j.detail?.message) return `${j.detail.message}${j.detail.status ? ` [${j.detail.status}]` : ""}`;
-  } catch {}
-  return body.slice(0, 160);
-}
 
 async function safeText(r: Response) {
   try {
