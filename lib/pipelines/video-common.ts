@@ -51,7 +51,7 @@ export async function startClips(ctx: JobContext, clips: ClipSpec[], ratio: Vide
   }
   const nextCost = Math.round(((Number(ctx.job.cost_usd) || 0) + cost) * 10000) / 10000;
   await adminClient().from("jobs").update({ cost_usd: nextCost }).eq("id", ctx.job.id);
-  await ctx.update({ provider_task_ids: ids, output: { clip_assets: {}, clip_endpoints: endpoints, notice: null } });
+  await ctx.update({ provider_task_ids: ids, output: { clip_assets: {}, clip_endpoints: endpoints, fal_request_ids: Object.values(ids), notice: null } });
   return true;
 }
 

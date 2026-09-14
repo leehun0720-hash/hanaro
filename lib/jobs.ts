@@ -123,7 +123,20 @@ export async function advanceJob(jobId: string, userId: string): Promise<Job> {
   const db = adminClient();
   const { data: job } = await db.from("jobs").select("*").eq("id", jobId).eq("user_id", userId).single();
   if (!job) throw new Error("작업을 찾을 수 없습니다.");
-  const j = job as Job;
+  return advanceLoaded(job as Job);
+}
+
+/** 시스템 경로(웹훅·티커)용: 소유자 확인 없이 진행 */
+export async function advanceJobSystem(jobId: string): Promise<Job | null> {
+  const { data: job } = await adminClient().from("jobs").select("*").eq("id", jobId).single();
+  if (!job) return null;
+  return advanceLoaded(job as Job);
+}
+
+async function advanceLoaded(j: Job): Promise<Job> {
+  const db = adminClient();
+  const jobId = j.id;
+  const userId = j.user_id;
   // 완료·실패·사용자 확인 대기 중이면 실행하지 않는다
   if (j.status === "succeeded" || j.status === "failed" || j.status === "waiting") return j;
 
@@ -233,6 +246,26 @@ export async function failJob(job: Job, message: string) {
       console.error("refund failed", e);
     }
   }
+}
+
+/** 사용자의 진행 중 작업(queued·running·waiting) 목록 */
+export async function listActiveJobs(userId: string): Promise<Job[]> {
+  const { data } = await adminClient().from("jobs").select("*").eq("user_id", userId).in("status", ["queued", "running", "waiting"]).order("created_at", { ascending: true }).limit(20);
+  return (data ?? []) as Job[];
+}
+
+/**
+ * 제작실 페이지가 열릴 때 이어서 보여줄 작업: 진행 중이면 항상, 완료·실패는 최근 12시간 이내 것만.
+ */
+export async function latestJobForRoom(userId: string, type: JobType): Promise<{ job: Job; assets: import("@/lib/types").Asset[] } | null> {
+  const db = adminClient();
+  const { data } = await db.from("jobs").select("*").eq("user_id", userId).eq("type", type).order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (!data) return null;
+  const job = data as Job;
+  const active = job.status === "queued" || job.status === "running" || job.status === "waiting";
+  const recent = Date.now() - new Date(job.created_at).getTime() < 12 * 3600_000;
+  if (!active && !recent) return null;
+  return jobWithAssets(job.id, userId);
 }
 
 /** 클라이언트에 보낼 작업 + 자산 목록 */

@@ -1,13 +1,13 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { JobRunner } from "@/components/JobRunner";
+import { JobRunner, type JobResult } from "@/components/JobRunner";
 import { TONES, type NewsletterOutput } from "@/lib/prompts/newsletter";
 import type { Project } from "@/lib/types";
 
 const STEPS = { plan: "Claude가 5섹션 원고를 쓰는 중", image: "카톡용 이미지를 그리는 중 (GPT Image)" };
 
-export function NewsletterClient({ projects, preselect, credits }: { projects: Project[]; preselect: string | null; credits: number}) {
+export function NewsletterClient({ projects, preselect, credits, initial }: { projects: Project[]; preselect: string | null; credits: number; initial?: JobResult | null }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? projects[0]?.id ?? "");
   const [tone, setTone] = useState<keyof typeof TONES>("warm");
   const [season, setSeason] = useState("");
@@ -15,7 +15,7 @@ export function NewsletterClient({ projects, preselect, credits }: { projects: P
   const [extra, setExtra] = useState("");
   const [copied, setCopied] = useState(false);
 
-  if (projects.length === 0) {
+  if (projects.length === 0 && !initial) {
     return (
       <div className="card text-sm">먼저 프로젝트(소재)를 등록하세요. <Link href="/studio/projects/new" className="font-semibold text-brand underline">새 프로젝트 만들기</Link></div>
     );
@@ -53,6 +53,7 @@ export function NewsletterClient({ projects, preselect, credits }: { projects: P
       </div>
 
       <JobRunner
+        initial={initial}
         type="newsletter"
         projectId={projectId}
         credits={credits}

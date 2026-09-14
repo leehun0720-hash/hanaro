@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { JobRunner } from "@/components/JobRunner";
+import { JobRunner, type JobResult } from "@/components/JobRunner";
 import type { PromoOutput } from "@/lib/prompts/promo";
 import type { Project } from "@/lib/types";
 
@@ -12,14 +12,14 @@ const STEPS = {
   compose: "컷을 잇고 자막을 입히는 중 (ffmpeg)",
 };
 
-export function PromoClient({ projects, preselect, credits }: { projects: Project[]; preselect: string | null; credits: number}) {
+export function PromoClient({ projects, preselect, credits, initial }: { projects: Project[]; preselect: string | null; credits: number; initial?: JobResult | null }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? projects[0]?.id ?? "");
   const [ratio, setRatio] = useState<"16:9" | "9:16">("16:9");
   const [usePhotos, setUsePhotos] = useState(true);
   const [mood, setMood] = useState("");
   const [extra, setExtra] = useState("");
 
-  if (projects.length === 0) {
+  if (projects.length === 0 && !initial) {
     return <div className="card text-sm">먼저 프로젝트(소재)를 등록하세요. <Link href="/studio/projects/new" className="font-semibold text-brand underline">새 프로젝트 만들기</Link></div>;
   }
   const project = projects.find((p) => p.id === projectId);
@@ -57,6 +57,7 @@ export function PromoClient({ projects, preselect, credits }: { projects: Projec
       </div>
 
       <JobRunner
+        initial={initial}
         type="promo_video"
         projectId={projectId}
         credits={credits}

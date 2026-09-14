@@ -32,9 +32,16 @@ export async function POST(request: Request) {
       case "ELEVENLABS_API_KEY": {
         if (/\s/.test(key) || /[^ -~]/.test(key)) return NextResponse.json({ ok: false, message: "키에 공백·줄바꿈·특수문자가 섞여 있어요. 다시 복사해서 저장하세요." });
         r = await fetch("https://api.elevenlabs.io/v1/user/subscription", { headers: { "xi-api-key": key }, signal: ctl.signal });
-        if (!r.ok) return NextResponse.json({ ok: false, message: `ElevenLabs 응답 ${r.status}: ${elDetail(await safeText(r))}` });
-        const sub = (await r.json().catch(() => ({}))) as { tier?: string; character_count?: number; character_limit?: number };
-        return NextResponse.json({ ok: true, message: `ElevenLabs 연결 성공 · 플랜 ${sub.tier ?? "?"} · 사용 ${sub.character_count ?? "?"}/${sub.character_limit ?? "?"} 문자. 음악 생성은 키에 'Music' 권한이 있어야 해요.` });
+        if (r.ok) {
+          const sub = (await r.json().catch(() => ({}))) as { tier?: string; character_count?: number; character_limit?: number };
+          return NextResponse.json({ ok: true, message: `ElevenLabs 연결 성공 · 플랜 ${sub.tier ?? "?"} · 사용 ${sub.character_count ?? "?"}/${sub.character_limit ?? "?"} 문자.` });
+        }
+        {
+          const body = await safeText(r);
+          // 키가 유효하지만 '사용자 정보 읽기' 권한이 없는 제한 키(Restricted)는 400/401(missing_permissions)을 돌려준다 → 음악 생성 권한만 있으면 정상
+          if (r.status === 401 && /invalid_api_key/.test(body)) return NextResponse.json({ ok: false, message: "ElevenLabs가 키를 거부했어요(invalid_api_key). 키를 다시 복사해 저장하세요." });
+          return NextResponse.json({ ok: true, message: `키 인증은 통과했지만 '사용자 정보 읽기' 권한이 없는 제한 키예요 (응답 ${r.status}). 키 권한에 '뮤직 생성'이 있으면 뮤직비디오는 정상 동작합니다. 상세: ${elDetail(body)}` });
+        }
       }
       case "FAL_KEY":
         r = await fetch("https://queue.fal.run/fal-ai/kling-video/requests/00000000-0000-0000-0000-000000000000/status", { headers: { Authorization: `Key ${key}` }, signal: ctl.signal });

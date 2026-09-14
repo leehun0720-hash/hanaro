@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { JobRunner } from "@/components/JobRunner";
+import { JobRunner, type JobResult } from "@/components/JobRunner";
 import { MV_GENRES, type MvGenre, type MvOutput } from "@/lib/prompts/mv";
 import type { Project } from "@/lib/types";
 
@@ -11,7 +11,7 @@ const STEPS = {
   compose: "장면을 잇고 음원·자막을 입히는 중 (ffmpeg)",
 };
 
-export function MvClient({ projects, preselect, orgName, credits }: { projects: Project[]; preselect: string | null; orgName: string | null; credits: number}) {
+export function MvClient({ projects, preselect, orgName, credits, initial }: { projects: Project[]; preselect: string | null; orgName: string | null; credits: number; initial?: JobResult | null }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? "");
   const [genre, setGenre] = useState<MvGenre>("trot");
   const [org, setOrg] = useState(orgName ?? "");
@@ -50,6 +50,7 @@ export function MvClient({ projects, preselect, orgName, credits }: { projects: 
       </div>
 
       <JobRunner
+        initial={initial}
         type="music_video"
         projectId={projectId || null}
         credits={credits}

@@ -12,7 +12,8 @@ export const MAX_CONCURRENT_VIDEO_JOBS = Math.max(1, Number(process.env.MAX_CONC
 export const AVG_VIDEO_SECONDS = Math.max(30, Number(process.env.AVG_VIDEO_SECONDS ?? 120) || 120);
 
 /** 순수 함수: 새로 시작할 수 있는가 */
-export const hasCapacity = (active: number, needed: number, limit: number) => active + needed <= limit;
+/** 순수 함수: 새로 시작할 수 있는가. 아무것도 돌고 있지 않으면 한도보다 큰 묶음(뮤직비디오 4클립 등)도 시작한다 — fal이 자체 큐로 처리 */
+export const hasCapacity = (active: number, needed: number, limit: number) => active === 0 || active + needed <= limit;
 
 /** 진행 중(video:wait) 작업들의 Kling 클립 요청 수 합계 */
 export async function countActiveVideoTasks(): Promise<number> {

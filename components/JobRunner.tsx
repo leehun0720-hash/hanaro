@@ -93,6 +93,13 @@ export function JobRunner({ type, projectId, buildInput, credits, steps, renderR
     }
   };
 
+  const reset = () => {
+    setResult(null);
+    setError(null);
+    setBusy(false);
+    setPlan(null);
+  };
+
   const job = result?.job;
   const running = job && (job.status === "queued" || job.status === "running");
   const stepLabel = job?.step ? steps[job.step] ?? steps[job.step.split(":")[0]] ?? job.step : "";
@@ -114,7 +121,8 @@ export function JobRunner({ type, projectId, buildInput, credits, steps, renderR
             <span className="h-3 w-3 animate-pulse rounded-full bg-brand" />
             <div>
               <p className="font-medium">{stepLabel || "준비 중"}</p>
-              <p className="hint">{notice ?? "AI가 작업 중입니다. 이 화면을 열어 두세요. 보통 1~3분 걸립니다."}</p>
+              <p className="hint">{notice ?? "AI가 작업 중입니다. 다른 메뉴로 이동해도 계속 진행되며, 이 페이지로 돌아오면 이어서 볼 수 있습니다."}</p>
+              <p className="hint">{new Date(job.created_at).toLocaleTimeString("ko-KR")} 시작</p>
             </div>
           </div>
           {result && renderRunning?.(result)}
@@ -123,10 +131,18 @@ export function JobRunner({ type, projectId, buildInput, credits, steps, renderR
       {job?.status === "failed" && (
         <div className="rounded-lg border border-danger/20 bg-danger-soft px-4 py-3 text-sm text-danger">
           <b>실패:</b> {job.error ?? "알 수 없는 오류"} · ro는 환불되었습니다.
+          <button type="button" onClick={reset} className="btn-secondary ml-3 px-2 py-1 text-xs">새 작업 시작</button>
         </div>
       )}
       {job?.status === "waiting" && result && (renderWaiting ? renderWaiting(result, resume, busy) : <div className="card text-sm">확인 대기 중입니다.</div>)}
-      {job?.status === "succeeded" && result && renderResult(result)}
+      {job?.status === "succeeded" && result && (
+        <>
+          {renderResult(result)}
+          <div className="flex justify-end">
+            <button type="button" onClick={reset} className="btn-secondary">새 작업 시작</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

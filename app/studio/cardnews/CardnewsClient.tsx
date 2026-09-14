@@ -1,19 +1,19 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { JobRunner } from "@/components/JobRunner";
+import { JobRunner, type JobResult } from "@/components/JobRunner";
 import { CARD_STYLES, type CardStyle, type CardnewsOutput } from "@/lib/prompts/cardnews";
 import type { Project } from "@/lib/types";
 
 const STEPS = { plan: "Claude가 장별 문구를 설계하는 중", image: "장별 이미지를 그리는 중 (GPT Image)", zip: "ZIP으로 묶는 중" };
 
-export function CardnewsClient({ projects, preselect, perPage }: { projects: Project[]; preselect: string | null; perPage: number}) {
+export function CardnewsClient({ projects, preselect, perPage, initial }: { projects: Project[]; preselect: string | null; perPage: number; initial?: JobResult | null }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? projects[0]?.id ?? "");
   const [pages, setPages] = useState(4);
   const [style, setStyle] = useState<CardStyle>("poster");
   const [extra, setExtra] = useState("");
 
-  if (projects.length === 0) {
+  if (projects.length === 0 && !initial) {
     return <div className="card text-sm">먼저 프로젝트(소재)를 등록하세요. <Link href="/studio/projects/new" className="font-semibold text-brand underline">새 프로젝트 만들기</Link></div>;
   }
 
@@ -48,6 +48,7 @@ export function CardnewsClient({ projects, preselect, perPage }: { projects: Pro
       </div>
 
       <JobRunner
+        initial={initial}
         type="cardnews"
         projectId={projectId}
         credits={perPage * pages}

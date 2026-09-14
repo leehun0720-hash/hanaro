@@ -1,12 +1,12 @@
 "use client";
 import { useState } from "react";
-import { JobRunner } from "@/components/JobRunner";
+import { JobRunner, type JobResult } from "@/components/JobRunner";
 import { DOC_TYPES, type DocType, type DocumentOutput } from "@/lib/prompts/document";
 import type { Project } from "@/lib/types";
 
 const STEPS = { plan: "Claude가 문서 초안을 작성하는 중", build: "한글(HWPX) 파일로 조립하는 중" };
 
-export function DocumentClient({ projects, preselect, orgName, credits }: { projects: Project[]; preselect: string | null; orgName: string | null; credits: number}) {
+export function DocumentClient({ projects, preselect, orgName, credits, initial }: { projects: Project[]; preselect: string | null; orgName: string | null; credits: number; initial?: JobResult | null }) {
   const [projectId, setProjectId] = useState<string>(preselect ?? "");
   const [docType, setDocType] = useState<DocType>("plan");
   const [title, setTitle] = useState("");
@@ -59,6 +59,7 @@ export function DocumentClient({ projects, preselect, orgName, credits }: { proj
       </div>
 
       <JobRunner
+        initial={initial}
         type="document"
         projectId={projectId || null}
         credits={credits}

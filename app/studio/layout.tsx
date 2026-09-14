@@ -3,6 +3,7 @@ import { requireProfile, getSubscription, isSubscribed } from "@/lib/auth";
 import { signOut } from "@/app/auth/actions";
 import { Logo } from "@/components/Logo";
 import { StudioNav } from "@/components/StudioNav";
+import { ActiveJobsTicker } from "@/components/ActiveJobsTicker";
 import { totalBananas } from "@/lib/credits";
 
 export default async function StudioLayout({ children }: { children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export default async function StudioLayout({ children }: { children: React.React
         )}
 
         <main className="flex-1 p-6 md:p-8">{children}</main>
+        <ActiveJobsTicker />
 
         <nav className="flex justify-around border-t border-line bg-white p-2 text-xs md:hidden">
           <Link href="/studio">대시보드</Link><Link href="/studio/projects">프로젝트</Link><Link href="/studio/library">보관함</Link><Link href="/studio/billing">구독</Link>

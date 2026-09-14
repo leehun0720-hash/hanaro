@@ -7,6 +7,8 @@ export const metadata = { title: "보관함" };
 
 type Row = Job & { assets: Asset[] };
 
+const ROOM_HREF: Record<Job["type"], string> = { document: "/studio/document", newsletter: "/studio/newsletter", cardnews: "/studio/cardnews", promo_video: "/studio/promo-video", music_video: "/studio/music-video", practice: "/studio/practice" };
+
 export default async function LibraryPage() {
   const profile = await requireProfile();
   const supabase = await createClient();
@@ -38,8 +40,8 @@ export default async function LibraryPage() {
                 <span className={`badge ${j.status === "succeeded" ? "bg-brand-soft text-brand-deep" : j.status === "failed" ? "bg-danger-soft text-danger" : "bg-gold-soft text-[#7a5d00]"}`}>{JOB_STATUS_LABEL[j.status]}</span>
               </div>
               {j.error && <p className="mt-2 text-sm text-danger">{j.error}</p>}
-              {j.type === "practice" && (j.status === "waiting" || j.status === "running" || j.status === "queued") && (
-                <Link href={`/studio/practice?job=${j.id}`} className="btn-primary mt-3 text-xs">{j.status === "waiting" ? "이어서 하기 →" : "진행 상황 보기 →"}</Link>
+              {(j.status === "waiting" || j.status === "running" || j.status === "queued") && (
+                <Link href={j.type === "practice" ? `/studio/practice?job=${j.id}` : ROOM_HREF[j.type]} className="btn-primary mt-3 text-xs">{j.status === "waiting" ? "이어서 하기 →" : "진행 상황 보기 →"}</Link>
               )}
               {j.assets?.length > 0 && (
                 <div className="mt-3 flex flex-wrap gap-2">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { adminClient } from "@/lib/supabase/admin";
-import { applyStepResult, buildContext, failJob, tryLockJob } from "@/lib/jobs";
+import { advanceJobSystem, applyStepResult, buildContext, failJob, tryLockJob } from "@/lib/jobs";
 import { verifyFalWebhook, koReasonFor, type FalWebhookBody } from "@/lib/providers/fal";
 import { completePracticeVideo } from "@/lib/pipelines/practice";
 import { refundPracticeCredit } from "@/lib/practice-credits";
@@ -39,9 +39,20 @@ export async function POST(request: Request) {
   if (!requestId) return NextResponse.json({ ok: true, ignored: "no request_id" });
 
   const db = adminClient();
-  const { data: found } = await db.from("jobs").select("*").eq("type", "practice").eq("step", "video:wait").contains("provider_task_ids", { clip: requestId }).limit(1).maybeSingle();
+  const { data: found } = await db.from("jobs").select("*").eq("step", "video:wait").in("status", ["running", "queued"]).contains("output", { fal_request_ids: [requestId] }).limit(1).maybeSingle();
   if (!found) return NextResponse.json({ ok: true, ignored: "job not found or already advanced" });
   const job = found as Job;
+
+  // 홍보영상·뮤직비디오: 해당 단계를 한 번 진행시키면 완료된 클립을 거둬 간다 (여러 클립 중 일부만 끝났어도 안전)
+  if (job.type !== "practice") {
+    try {
+      await advanceJobSystem(job.id);
+      return NextResponse.json({ ok: true, advanced: true });
+    } catch (e) {
+      console.error("[fal webhook] advance 실패, 폴링이 이어받음:", e);
+      return NextResponse.json({ ok: true, deferred: true });
+    }
+  }
 
   const locked = await tryLockJob(job.id, "video:wait");
   if (!locked) return NextResponse.json({ ok: true, ignored: "locked by poller" });

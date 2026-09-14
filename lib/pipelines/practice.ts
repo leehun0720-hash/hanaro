@@ -186,7 +186,7 @@ export const practicePipeline: Pipeline = {
         await addCost(ctx, klingCostUsd(endpoint, duration));
         await ctx.update({
           provider_task_ids: { clip: requestId },
-          output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), queue_position: null, eta_seconds: null, notice: "Kling에 제출했어요. 5초 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요." },
+          output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), fal_request_ids: [requestId], queue_position: null, eta_seconds: null, notice: "Kling에 제출했어요. 5초 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요." },
         });
         return { next: "video:wait" };
       } catch (e) {
