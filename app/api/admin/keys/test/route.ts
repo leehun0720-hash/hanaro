@@ -39,7 +39,11 @@ export async function POST(request: Request) {
         {
           const body = await safeText(r);
           // 키가 유효하지만 '사용자 정보 읽기' 권한이 없는 제한 키(Restricted)는 400/401(missing_permissions)을 돌려준다 → 음악 생성 권한만 있으면 정상
-          if (r.status === 401 && /invalid_api_key/.test(body)) return NextResponse.json({ ok: false, message: "ElevenLabs가 키를 거부했어요(invalid_api_key). 키를 다시 복사해 저장하세요." });
+          if (/invalid_api_key/.test(body)) {
+            const hint = /API key ID/i.test(body) ? " 대시보드 목록의 짧은 ID가 아니라, 키 생성 직후 한 번만 표시되는 sk_로 시작하는 전체 키를 넣어야 해요. 새 키를 만들어 다시 저장하세요." : " 키를 다시 복사해 저장하세요.";
+            return NextResponse.json({ ok: false, message: `ElevenLabs가 키를 거부했어요(invalid_api_key).${hint}` });
+          }
+          if (!key.startsWith("sk_")) return NextResponse.json({ ok: false, message: "ElevenLabs API 키는 sk_로 시작해요. 키 생성 직후 표시되는 전체 값을 넣어 주세요." });
           return NextResponse.json({ ok: true, message: `키 인증은 통과했지만 '사용자 정보 읽기' 권한이 없는 제한 키예요 (응답 ${r.status}). 키 권한에 '뮤직 생성'이 있으면 뮤직비디오는 정상 동작합니다. 상세: ${elDetail(body)}` });
         }
       }
