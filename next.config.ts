@@ -15,6 +15,8 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // 서버 액션 본문 한도 (기본 1MB). 로고 업로드용 — Vercel 함수 요청 한도 4.5MB 아래. 사진·영상은 브라우저→저장소 직접 업로드
+  experimental: { serverActions: { bodySizeLimit: "4mb" } },
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },

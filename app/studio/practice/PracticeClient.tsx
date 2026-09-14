@@ -2,7 +2,7 @@
 import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
+import { IMAGE_TYPES, resizeImage, uploadToStorage } from "@/lib/client-upload";
 import { JobRunner, type JobResult, type ResumeFn } from "@/components/JobRunner";
 import { CueEditor, SubtitleStudio } from "@/components/SubtitleStudio";
 import type { Cue } from "@/lib/video/subtitles";
@@ -35,28 +35,6 @@ type Out = {
   notice?: string | null;
   credits_used?: { image: number; video: number };
 };
-
-const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
-const MAX_SIDE = 2048;
-
-/** 브라우저에서 리사이즈(최대 2048px) 후 JPEG로 (SPEC §5①) */
-async function resizeImage(file: File): Promise<Blob> {
-  const bmp = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bmp.width, bmp.height));
-  if (scale === 1 && file.type === "image/jpeg") return file;
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bmp.width * scale);
-  canvas.height = Math.round(bmp.height * scale);
-  canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
-  return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("이미지 변환 실패"))), "image/jpeg", 0.92));
-}
-
-/** 브라우저 → Supabase Storage 직접 업로드 (서버리스 본문 제한 우회, SPEC §3.3) */
-async function uploadToStorage(bucket: "uploads" | "outputs", path: string, blob: Blob, contentType: string): Promise<string> {
-  const { error } = await createClient().storage.from(bucket).upload(path, blob, { contentType, upsert: false });
-  if (error) throw new Error(`업로드 실패: ${error.message}`);
-  return path;
-}
 
 export function PracticeClient({ userId, nickname, credits, practiceCredits, initial }: { userId: string; nickname: string; credits: number; practiceCredits: PracticeCredits; initial?: JobResult | null }) {
   const [photo, setPhoto] = useState<{ path: string; preview: string } | null>(null);

@@ -29,16 +29,13 @@ export async function createProject(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const photos: string[] = [];
-  for (const f of formData.getAll("photos")) {
-    if (!(f instanceof File) || f.size === 0) continue;
-    if (f.size > 10 * 1024 * 1024 || !["image/jpeg", "image/png"].includes(f.type)) continue;
-    const ext = f.type === "image/png" ? "png" : "jpg";
-    const path = `${user!.id}/projects/${crypto.randomUUID()}.${ext}`;
-    const { error } = await supabase.storage.from("uploads").upload(path, f, { contentType: f.type });
-    if (!error) photos.push(path);
-    if (photos.length >= 3) break;
-  }
+  // 사진은 브라우저가 저장소에 직접 올리고 경로만 넘어온다 — 본인 폴더 경로만 인정
+  const prefix = `${user!.id}/projects/`;
+  const photos = formData
+    .getAll("photos")
+    .map((p) => String(p))
+    .filter((p) => p.startsWith(prefix) && /^[\w\-./]+$/.test(p))
+    .slice(0, 3);
 
   const { data, error } = await supabase
     .from("projects")

@@ -1,10 +1,13 @@
 import { Alert } from "@/components/Alert";
 import { createProject } from "../actions";
+import { requireProfile } from "@/lib/auth";
+import { ProjectPhotos } from "./ProjectPhotos";
 
 export const metadata = { title: "새 프로젝트(소재)" };
 
 export default async function NewProjectPage({ searchParams }: PageProps<"/studio/projects/new">) {
   const sp = await searchParams;
+  const profile = await requireProfile();
   const error = typeof sp.error === "string" ? sp.error : null;
 
   return (
@@ -18,7 +21,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/studi
       </Alert>
       {error && <Alert kind="error">{error}</Alert>}
 
-      <form action={createProject} className="card space-y-5" encType="multipart/form-data">
+      <form action={createProject} className="card space-y-5">
         <div>
           <label className="label" htmlFor="name">프로젝트 이름</label>
           <input id="name" name="name" required maxLength={60} className="input" placeholder="예) 추석 선물세트 예약" />
@@ -48,11 +51,7 @@ export default async function NewProjectPage({ searchParams }: PageProps<"/studi
             <input id="cta" name="cta" maxLength={100} className="input" placeholder="예) 031-000-0000으로 전화 예약" />
           </div>
         </div>
-        <div>
-          <label className="label" htmlFor="photos">우리 조합 사진 2~3장 (선택, jpg/png, 각 10MB 이하)</label>
-          <input id="photos" name="photos" type="file" accept="image/jpeg,image/png" multiple className="input" />
-          <p className="hint">매장·과수원·행사 사진. 사람 얼굴이 있는 사진은 동의 받은 것만 올리세요.</p>
-        </div>
+        <ProjectPhotos userId={profile.id} />
         <div className="flex justify-end gap-2">
           <a href="/studio" className="btn-secondary">취소</a>
           <button type="submit" className="btn-primary">프로젝트 저장</button>
