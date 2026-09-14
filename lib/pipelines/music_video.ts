@@ -51,6 +51,7 @@ export const musicVideoPipeline: Pipeline = {
     }
 
     if (step === "compose") {
+      await ctx.update({ output: { notice: "장면 4개를 잇고 음원·자막을 입히는 중입니다 (2~4분). 화면을 닫아도 서버에서 계속됩니다." } });
       const tmp = await tmpDir();
       try {
         const files = await fetchClipFiles(ctx, KEYS, tmp);

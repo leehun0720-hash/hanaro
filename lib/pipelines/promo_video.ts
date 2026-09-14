@@ -52,6 +52,7 @@ export const promoVideoPipeline: Pipeline = {
     }
 
     if (step === "poster") {
+      await ctx.update({ output: { notice: "클립 3개 완성. 마지막 장면용 포스터를 그리는 중입니다 (약 1분)." } });
       const png = await generateImage({ prompt: promoPosterPrompt(plan.poster, input.ratio, ctx.orgName), size: input.ratio === "9:16" ? IMAGE_SIZES.portrait916 : IMAGE_SIZES.landscape169, quality: "high" });
       const asset = await ctx.saveAsset({ kind: "image", ext: "png", data: png, mime: "image/png", meta: { filename: "홍보영상_CTA포스터.png", intermediate: true } });
       await ctx.update({ output: { poster_asset_id: asset.id } });
@@ -59,6 +60,7 @@ export const promoVideoPipeline: Pipeline = {
     }
 
     if (step === "compose") {
+      await ctx.update({ output: { notice: "컷 4개를 잇고 자막을 입히는 중입니다 (2~4분). 화면을 닫아도 서버에서 계속됩니다." } });
       const size = input.ratio === "9:16" ? SIZE_916 : SIZE_169;
       const tmp = await tmpDir();
       try {

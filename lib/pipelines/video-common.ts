@@ -88,7 +88,7 @@ export async function waitClips(ctx: JobContext, keys: string[], tmp: string): P
       throw e;
     }
   }
-  if (!allDone) await ctx.update({ output: { notice: queued ? `Kling 큐 대기 중 (${queued}개 클립). 보통 1.5~3분 걸립니다.` : "Kling이 클립을 만드는 중입니다 (1.5~3분)." } });
+  await ctx.update({ output: { notice: allDone ? null : queued ? `Kling 큐 대기 중 (${queued}개 클립). 보통 1.5~3분 걸립니다.` : "Kling이 클립을 만드는 중입니다 (1.5~3분)." } });
   return allDone;
 }
 

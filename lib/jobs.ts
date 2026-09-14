@@ -32,6 +32,9 @@ export type Pipeline = {
 };
 
 const LOCK_SECONDS = 150;
+/** 서버 ffmpeg 합성은 1080p 30초 인코딩이라 2~4분 걸린다 — 잠금이 먼저 풀려 다른 진행기가 겹치지 않게 함수 제한(300초)에 맞춘다 */
+const LOCK_SECONDS_HEAVY = 290;
+const lockSecondsFor = (step: string | null | undefined) => (step === "compose" ? LOCK_SECONDS_HEAVY : LOCK_SECONDS);
 
 export class SubscriptionRequired extends Error {
   constructor() {
@@ -142,7 +145,7 @@ async function advanceLoaded(j: Job): Promise<Job> {
 
   // 잠금: lock_until이 미래면 다른 요청이 실행 중
   const now = new Date();
-  const lockUntil = new Date(now.getTime() + LOCK_SECONDS * 1000).toISOString();
+  const lockUntil = new Date(now.getTime() + lockSecondsFor(j.step) * 1000).toISOString();
   const { data: locked } = await db
     .from("jobs")
     .update({ status: "running", lock_until: lockUntil })
@@ -205,7 +208,7 @@ export async function resumeJob(jobId: string, userId: string, action: string, d
 export async function tryLockJob(jobId: string, expectStep?: string): Promise<Job | null> {
   const db = adminClient();
   const now = new Date();
-  const lockUntil = new Date(now.getTime() + LOCK_SECONDS * 1000).toISOString();
+  const lockUntil = new Date(now.getTime() + lockSecondsFor(expectStep) * 1000).toISOString();
   let q = db.from("jobs").update({ status: "running", lock_until: lockUntil }).eq("id", jobId).in("status", ["queued", "running"]).or(`lock_until.is.null,lock_until.lt.${now.toISOString()}`);
   if (expectStep) q = q.eq("step", expectStep);
   const { data } = await q.select("*").maybeSingle();
