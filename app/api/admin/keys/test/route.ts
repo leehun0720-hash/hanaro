@@ -29,9 +29,13 @@ export async function POST(request: Request) {
       case "ANTHROPIC_API_KEY":
         r = await fetch("https://api.anthropic.com/v1/models", { headers: { "x-api-key": key, "anthropic-version": "2023-06-01" }, signal: ctl.signal });
         return NextResponse.json(r.ok ? { ok: true, message: "Anthropic 연결 성공" } : { ok: false, message: `Anthropic 응답 ${r.status}: ${await safeText(r)}` });
-      case "ELEVENLABS_API_KEY":
-        r = await fetch("https://api.elevenlabs.io/v1/user", { headers: { "xi-api-key": key }, signal: ctl.signal });
-        return NextResponse.json(r.ok ? { ok: true, message: "ElevenLabs 연결 성공" } : { ok: false, message: `ElevenLabs 응답 ${r.status}` });
+      case "ELEVENLABS_API_KEY": {
+        if (/\s/.test(key) || /[^ -~]/.test(key)) return NextResponse.json({ ok: false, message: "키에 공백·줄바꿈·특수문자가 섞여 있어요. 다시 복사해서 저장하세요." });
+        r = await fetch("https://api.elevenlabs.io/v1/user/subscription", { headers: { "xi-api-key": key }, signal: ctl.signal });
+        if (!r.ok) return NextResponse.json({ ok: false, message: `ElevenLabs 응답 ${r.status}: ${elDetail(await safeText(r))}` });
+        const sub = (await r.json().catch(() => ({}))) as { tier?: string; character_count?: number; character_limit?: number };
+        return NextResponse.json({ ok: true, message: `ElevenLabs 연결 성공 · 플랜 ${sub.tier ?? "?"} · 사용 ${sub.character_count ?? "?"}/${sub.character_limit ?? "?"} 문자. 음악 생성은 키에 'Music' 권한이 있어야 해요.` });
+      }
       case "FAL_KEY":
         r = await fetch("https://queue.fal.run/fal-ai/kling-video/requests/00000000-0000-0000-0000-000000000000/status", { headers: { Authorization: `Key ${key}` }, signal: ctl.signal });
         if (r.status === 401 || r.status === 403) return NextResponse.json({ ok: false, message: `fal.ai 인증 실패 (${r.status}). 키를 확인하세요.` });
@@ -44,6 +48,16 @@ export async function POST(request: Request) {
   } finally {
     clearTimeout(t);
   }
+}
+
+/** ElevenLabs 오류 본문에서 사람이 읽을 메시지만 */
+function elDetail(body: string): string {
+  try {
+    const j = JSON.parse(body) as { detail?: { message?: string; status?: string } | string };
+    if (typeof j.detail === "string") return j.detail;
+    if (j.detail?.message) return `${j.detail.message}${j.detail.status ? ` [${j.detail.status}]` : ""}`;
+  } catch {}
+  return body.slice(0, 160);
 }
 
 async function safeText(r: Response) {

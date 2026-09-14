@@ -28,7 +28,7 @@ export async function composeMusic(plan: CompositionPlan): Promise<Buffer> {
     async () => {
       const r = await fetch(`${BASE}/music?output_format=mp3_44100_128`, {
         method: "POST",
-        headers: { "xi-api-key": await requireSecret("ELEVENLABS_API_KEY"), "Content-Type": "application/json", Accept: "audio/mpeg" },
+        headers: { "xi-api-key": (await requireSecret("ELEVENLABS_API_KEY")).trim(), "Content-Type": "application/json", Accept: "audio/mpeg" },
         body: JSON.stringify({ composition_plan: plan, model_id: MUSIC_MODEL }),
         cache: "no-store",
       });
