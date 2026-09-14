@@ -7,6 +7,7 @@ import { promoInputSchema, promoOutputSchema, promoPosterPrompt, promoSystemProm
 import { buildNarrationTrack, cleanup, concatClips, finalize, imageToClip, normalizeClip, SIZE_169, SIZE_916, tmpDir } from "@/lib/video/ffmpeg";
 import { isTtsVoice, synthesizeSpeech, ttsCostUsd } from "@/lib/providers/openai-tts";
 import { adminClient } from "@/lib/supabase/admin";
+import { normalizeStyle } from "@/lib/video/subtitle-style";
 import { cuesFromSegments } from "@/lib/video/subtitles";
 import { fetchAssetFile, fetchClipFiles, referenceUrls, startClips, waitClips } from "./video-common";
 
@@ -39,7 +40,7 @@ export const promoVideoPipeline: Pipeline = {
         ],
         input.ratio,
         refs,
-        { ambient: input.sound.ambient, pro: input.quality === "pro" },
+        { ambient: input.sound.ambient, pro: input.quality === "pro", model: input.model },
       );
       return { next: started ? "video:wait" : "video:start" };
     }
@@ -108,7 +109,7 @@ export const promoVideoPipeline: Pipeline = {
           }
         }
         const final = path.join(tmp, "final.mp4");
-        await finalize(joined, final, { cues, size, totalSeconds: 30, fadeOut: true, keepSourceAudio: input.sound.ambient, narration });
+        await finalize(joined, final, { cues, size, totalSeconds: 30, fadeOut: true, keepSourceAudio: input.sound.ambient, narration, style: normalizeStyle(input.subtitle) });
         const data = await fs.readFile(final);
         const asset = await ctx.saveAsset({ kind: "video", ext: "mp4", data, mime: "video/mp4", meta: { filename: `홍보영상_${input.ratio.replace(":", "x")}.mp4`, final: true } });
         await ctx.update({ output: { final_asset_id: asset.id } });

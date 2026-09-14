@@ -1,7 +1,7 @@
 import path from "node:path";
 import fs from "node:fs/promises";
 import type { JobContext } from "@/lib/jobs";
-import { getVideoResult, getVideoStatus, isContentRejection, klingCostUsd, koReasonFor, submitVideo, type KlingAspect, FAL_I2V_AUDIO_ENDPOINT_DEFAULT, FAL_I2V_AUDIO_ENDPOINT_PRO, FAL_VIDEO_ENDPOINT_PRO, FAL_T2V_ENDPOINT_PRO } from "@/lib/providers/fal";
+import { getVideoResult, getVideoStatus, isContentRejection, klingCostUsd, koReasonFor, submitVideo, type KlingAspect, type VideoModel } from "@/lib/providers/fal";
 import { adminClient } from "@/lib/supabase/admin";
 import { canStartVideoTasks } from "@/lib/concurrency";
 import { cleanup, downloadTo, run, tmpDir } from "@/lib/video/ffmpeg";
@@ -55,7 +55,7 @@ const CLIP_NEGATIVE = "on-screen text, subtitles, captions, letters, signage wit
  *  - 참조 사진이 있으면 image-to-video(첫 프레임), 없으면 text-to-video(비율 지정)
  *  - 전체 동시 실행 한도가 차 있으면 아무것도 보내지 않고 false → 파이프라인은 같은 단계를 유지해 다음 폴링 때 다시 시도
  */
-export async function startClips(ctx: JobContext, clips: ClipSpec[], ratio: VideoRatio, refs: string[], opts: { ambient?: boolean; pro?: boolean } = {}): Promise<boolean> {
+export async function startClips(ctx: JobContext, clips: ClipSpec[], ratio: VideoRatio, refs: string[], opts: { ambient?: boolean; pro?: boolean; model?: VideoModel } = {}): Promise<boolean> {
   const gate = await canStartVideoTasks(clips.length);
   if (!gate.ok) {
     await ctx.update({ output: { notice: `영상 생성 순서를 기다리는 중입니다 (진행 중 ${gate.active}/${gate.limit}). 잠시 후 자동으로 시작됩니다.` } });
@@ -70,19 +70,19 @@ export async function startClips(ctx: JobContext, clips: ClipSpec[], ratio: Vide
     for (const [i, c] of clips.entries()) {
       // 참조 사진은 첫 컷의 첫 프레임에만 쓴다 — 한 사진을 서로 다른 장면 모두의 첫 프레임으로 쓰면 뒤틀림·떨림이 생긴다
       const imageUrl = c.imageUrl ?? (i === 0 ? refs[0] : undefined);
-      const endpoint = imageUrl ? (ambient ? (pro ? FAL_I2V_AUDIO_ENDPOINT_PRO : FAL_I2V_AUDIO_ENDPOINT_DEFAULT) : pro ? FAL_VIDEO_ENDPOINT_PRO : undefined) : pro ? FAL_T2V_ENDPOINT_PRO : undefined;
-      const { requestId, endpoint: used } = await submitVideo({
+      const { requestId, endpoint: used, seconds } = await submitVideo({
         prompt: (c.prompt + CLIP_STYLE_SUFFIX + (ambient ? AMBIENT_SUFFIX : "")).slice(0, 2500),
         duration: c.seconds,
         imageUrl,
-        endpoint,
+        model: opts.model,
+        pro,
         aspectRatio: ratio,
         generateAudio: ambient,
         negativePrompt: CLIP_NEGATIVE,
       });
       ids[c.key] = requestId;
       endpoints[c.key] = used;
-      cost += klingCostUsd(used, c.seconds, ambient);
+      cost += klingCostUsd(used, seconds, ambient);
     }
   } catch (e) {
     throw new Error(isContentRejection(e) ? koReasonFor(e) : e instanceof Error ? e.message : String(e));

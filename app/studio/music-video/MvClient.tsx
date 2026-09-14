@@ -4,9 +4,13 @@ import { JobRunner, type JobResult } from "@/components/JobRunner";
 import { MV_GENRES, type MvGenre, type MvOutput } from "@/lib/prompts/mv";
 import type { Project } from "@/lib/types";
 import { RefPhotoPicker } from "@/components/RefPhotoPicker";
+import { MvPlanReview } from "./MvPlanReview";
+import { DEFAULT_MUSIC_OPTIONS, MOOD_OPTIONS, TEMPO_OPTIONS, VOCAL_OPTIONS, type MoodOption, type MusicOptions, type TempoOption, type VocalOption } from "@/lib/music-options";
+import { DEFAULT_STYLE, type SubtitleStyle } from "@/lib/video/subtitle-style";
 
 const STEPS = {
   plan: "Claude가 가사와 장면 4개를 쓰는 중",
+  "await:plan": "가사·장면 확인 대기",
   music: "ElevenLabs가 응원송을 작곡·녹음하는 중 (1~2분)",
   video: "Kling이 장면 4개를 촬영하는 중 (3~8분)",
   compose: "장면을 잇고 음원·자막을 입히는 중 (ffmpeg)",
@@ -20,6 +24,8 @@ export function MvClient({ projects, photoUrls, preselect, orgName, credits, ini
   const [region, setRegion] = useState("");
   const [extra, setExtra] = useState("");
   const [refPhoto, setRefPhoto] = useState<string | null>(null); // 기본: 참조 안 함
+  const [music, setMusic] = useState<MusicOptions>(DEFAULT_MUSIC_OPTIONS);
+  const [style] = useState<SubtitleStyle>(DEFAULT_STYLE);
 
   return (
     <div className="space-y-6">
@@ -56,6 +62,21 @@ export function MvClient({ projects, photoUrls, preselect, orgName, credits, ini
           </div>
         )}
         <div><label className="label">담고 싶은 이야기 (선택)</label><textarea value={extra} onChange={(e) => setExtra(e.target.value)} className="input min-h-20" maxLength={1000} placeholder="예) 60년 역사, 조합원 3천 명, 새벽 경매, 로컬푸드 직매장" /></div>
+        <div>
+          <label className="label">음악 설정 (가사 확인 화면에서 다시 바꿀 수 있어요)</label>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <select value={music.vocal} onChange={(e) => setMusic({ ...music, vocal: e.target.value as VocalOption })} className="input">
+              {(Object.keys(VOCAL_OPTIONS) as VocalOption[]).map((k) => <option key={k} value={k}>{VOCAL_OPTIONS[k].label}</option>)}
+            </select>
+            <select value={music.tempo} onChange={(e) => setMusic({ ...music, tempo: e.target.value as TempoOption })} className="input">
+              {(Object.keys(TEMPO_OPTIONS) as TempoOption[]).map((k) => <option key={k} value={k}>{TEMPO_OPTIONS[k].label}</option>)}
+            </select>
+            <select value={music.mood} onChange={(e) => setMusic({ ...music, mood: e.target.value as MoodOption })} className="input">
+              {(Object.keys(MOOD_OPTIONS) as MoodOption[]).map((k) => <option key={k} value={k}>{MOOD_OPTIONS[k].label}</option>)}
+            </select>
+          </div>
+          <p className="hint">순서: Claude가 가사·장면을 쓰면 → 확인 화면에서 가사·장면·악기·자막 폰트를 고친 뒤 → 작곡(ElevenLabs)·촬영(Kling)이 시작됩니다. 촬영 전까지는 비용이 들지 않아요.</p>
+        </div>
       </div>
 
       <JobRunner
@@ -68,8 +89,9 @@ export function MvClient({ projects, photoUrls, preselect, orgName, credits, ini
         buildInput={() => {
           if (!org.trim()) return { error: "조합명을 입력하세요." };
           if (!specialty.trim()) return { error: "지역 특산물을 입력하세요." };
-          return { genre, orgName: org.trim(), specialty: specialty.trim(), region: region || undefined, extra: extra || undefined, refPhoto: projectId ? refPhoto : null };
+          return { genre, orgName: org.trim(), specialty: specialty.trim(), region: region || undefined, extra: extra || undefined, refPhoto: projectId ? refPhoto : null, music, subtitle: style };
         }}
+        renderWaiting={(r, resume, busy) => <MvPlanReview r={r} resume={resume} busy={busy} initialMusic={music} initialStyle={style} />}
         renderResult={({ job, assets }) => {
           const plan = job.output.plan as MvOutput | undefined;
           const final = assets.find((a) => a.kind === "video" && (a.meta as { final?: boolean }).final);

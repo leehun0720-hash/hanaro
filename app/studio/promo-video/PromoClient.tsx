@@ -6,10 +6,13 @@ import type { PromoOutput } from "@/lib/prompts/promo";
 import type { Project } from "@/lib/types";
 import { RefPhotoPicker } from "@/components/RefPhotoPicker";
 import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
+import { VIDEO_MODELS, type VideoModel } from "@/lib/video-models";
+import { SubtitleStylePicker } from "@/components/SubtitleStylePicker";
+import { DEFAULT_STYLE, type SubtitleStyle } from "@/lib/video/subtitle-style";
 
 const STEPS = {
   plan: "Claude가 3컷 설계도를 그리는 중",
-  video: "Kling이 컷을 촬영하는 중 (2~6분)",
+  video: "AI가 컷을 촬영하는 중 (2~6분)",
   poster: "행동 유도(CTA) 포스터를 그리는 중",
   compose: "컷을 잇고 자막을 입히는 중 (ffmpeg)",
 };
@@ -22,6 +25,8 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
   const [narration, setNarration] = useState(true);
   const [voice, setVoice] = useState<TtsVoice>("nova");
   const [quality, setQuality] = useState<"standard" | "pro">("standard");
+  const [model, setModel] = useState<VideoModel>("kling");
+  const [style, setStyle] = useState<SubtitleStyle>(DEFAULT_STYLE);
   const [mood, setMood] = useState("");
   const [extra, setExtra] = useState("");
 
@@ -52,6 +57,18 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
           <p className="hint">고른 사진은 <b>첫 컷(후크)의 첫 프레임</b>으로만 쓰이고, 화면 비율에 맞게 가운데를 잘라 사용합니다(세로 영상이면 세로 사진 권장). 나머지 컷은 장면 설명으로 촬영하며 보관함의 이전 자료는 참조하지 않습니다. 동의 받은 사진만, 얼굴 클로즈업은 피하세요.</p>
         </div>
         <div>
+          <label className="label">영상 모델</label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(Object.keys(VIDEO_MODELS) as VideoModel[]).map((m) => (
+              <button key={m} type="button" onClick={() => setModel(m)} className={`rounded-lg border px-3 py-2 text-left text-sm ${model === m ? "border-brand bg-brand-soft" : "border-line"}`}>
+                <div className="font-medium">{VIDEO_MODELS[m].label}</div>
+                <div className="text-[11px] text-muted">{VIDEO_MODELS[m].desc} · {VIDEO_MODELS[m].priceNote}</div>
+              </button>
+            ))}
+          </div>
+          {model === "veo" && <p className="hint">Veo는 클립이 최대 8초라 10초 컷은 살짝 느린 화면(1.25배)으로 채웁니다. 사람·얼굴 관련 안전 필터가 Kling보다 엄격합니다.</p>}
+        </div>
+        <div>
           <label className="label">품질</label>
           <div className="flex gap-2">
             <button type="button" onClick={() => setQuality("standard")} className={`rounded-lg border px-3 py-2 text-sm ${quality === "standard" ? "border-brand bg-brand-soft" : "border-line"}`}>표준 720p (빠름)</button>
@@ -71,6 +88,10 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
           </div>
           <p className="hint">현장음을 켜고 참조 사진을 고르면 오디오 지원 모델을 써서 비용이 조금 늘어요. 배경음악이 필요하면 완성본을 실습 제작실의 자막 도구에서 mp3와 섞을 수 있습니다.</p>
         </div>
+        <details className="rounded-lg border border-line p-3">
+          <summary className="cursor-pointer text-sm font-medium">자막 폰트·테마 (기본: Noto Sans · 검정 박스)</summary>
+          <div className="mt-3"><SubtitleStylePicker style={style} onChange={setStyle} ratio={ratio} sampleText="추석 선물세트 예약 접수 중" compact /></div>
+        </details>
         <div className="grid gap-4 sm:grid-cols-2">
           <div><label className="label">분위기 (선택)</label><input value={mood} onChange={(e) => setMood(e.target.value)} className="input" placeholder="예) 황금빛 과수원, 따뜻하고 웅장하게" /></div>
           <div><label className="label">추가 정보 (선택)</label><input value={extra} onChange={(e) => setExtra(e.target.value)} className="input" placeholder="예) 택배 가능, 본점 2층" /></div>
@@ -84,7 +105,7 @@ export function PromoClient({ projects, photoUrls, preselect, credits, initial }
         credits={credits}
         steps={STEPS}
         buttonLabel="홍보영상 만들기"
-        buildInput={() => ({ ratio, refPhoto, quality, sound: { ambient, narration, voice }, mood: mood || undefined, extra: extra || undefined })}
+        buildInput={() => ({ ratio, refPhoto, quality, model, subtitle: style, sound: { ambient, narration, voice }, mood: mood || undefined, extra: extra || undefined })}
         renderResult={({ job, assets }) => {
           const plan = job.output.plan as PromoOutput | undefined;
           const final = assets.find((a) => a.kind === "video" && (a.meta as { final?: boolean }).final);

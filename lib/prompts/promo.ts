@@ -10,6 +10,10 @@ export const promoInputSchema = z.object({
   sound: z.object({ ambient: z.boolean().default(true), narration: z.boolean().default(true), voice: z.string().optional() }).default({ ambient: true, narration: true }),
   /** pro: 1080p 고품질 (비용 ↑) */
   quality: z.enum(["standard", "pro"]).default("standard"),
+  /** 영상 모델 */
+  model: z.enum(["kling", "veo"]).default("kling"),
+  /** 자막 스타일 (폰트·테마·위치·크기) */
+  subtitle: z.object({ fontId: z.string().optional(), themeId: z.string().optional(), position: z.enum(["top", "bottom"]).optional(), fontSize: z.number().optional() }).optional(),
   mood: z.string().trim().max(100).optional(),
   extra: z.string().trim().max(1000).optional(),
 });

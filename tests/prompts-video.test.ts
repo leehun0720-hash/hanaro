@@ -14,7 +14,7 @@ describe("promo", () => {
     expect(PROMO_CUTS.reduce((a, c) => a + c.seconds, 0)).toBe(30);
   });
   it("프롬프트에 비율·CTA가 들어간다", () => {
-    const p = promoUserPrompt({ ratio: "9:16", sound: { ambient: true, narration: true }, quality: "standard" }, project, "안성농협");
+    const p = promoUserPrompt({ ratio: "9:16", sound: { ambient: true, narration: true }, quality: "standard", model: "kling" }, project, "안성농협");
     expect(p).toContain("9:16");
     expect(p).toContain("031-000-0000 전화 예약");
   });
@@ -30,16 +30,22 @@ describe("music video", () => {
     title: "안성배 노래",
     lyrics: { verse1: ["a", "b"], chorus: ["c", "d"], verse2: ["e"], chorus2: ["c", "d"] },
     scenes: Array.from({ length: 4 }, (_, i) => ({ captionKo: `line ${i}`, videoPrompt: "golden field" })),
+    musicStyles: ["warm brass stabs"],
   };
   it("장면 4개 × 15초 = 60초", () => {
     expect(MV_SCENES * MV_SCENE_SECONDS).toBe(60);
   });
   it("composition_plan 총 길이 60000ms, 장르 스타일 반영", () => {
-    const plan = buildCompositionPlan(out, "trot");
+    const plan = buildCompositionPlan(out, "trot", { vocal: "duet", tempo: "fast", mood: "bright", instruments: "accordion, brass" });
     expect(planDurationMs(plan)).toBe(60000);
     expect(plan.sections).toHaveLength(4);
-    expect(plan.positive_global_styles).toContain("Korean trot");
+    expect(plan.positive_global_styles).toContain("Korean trot (ppongjjak)");
+    expect(plan.positive_global_styles).toContain("male and female duet");
+    expect(plan.positive_global_styles).toContain("130 bpm");
+    expect(plan.positive_global_styles).toContain("warm brass stabs");
     expect(plan.sections[1].lines).toEqual(["c", "d"]);
+    const inst = buildCompositionPlan(out, "folk", { vocal: "instrumental", tempo: "slow", mood: "warm" });
+    expect(inst.sections.every((s) => s.lines.length === 0)).toBe(true);
   });
   it("장르 5종", () => {
     expect(Object.keys(MV_GENRES)).toEqual(["trot", "folk", "kids", "dance", "ballad"]);

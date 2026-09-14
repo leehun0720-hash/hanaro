@@ -63,6 +63,21 @@ export async function hasAudioStream(file: string): Promise<boolean> {
   });
 }
 
+/** 입력 길이(초). 못 읽으면 null */
+export async function probeDuration(file: string): Promise<number | null> {
+  const bin = await ffmpegPath();
+  return new Promise((resolve) => {
+    const proc = spawn(bin, ["-hide_banner", "-i", file], { stdio: ["ignore", "ignore", "pipe"] });
+    let err = "";
+    proc.stderr.on("data", (d) => (err += d.toString()));
+    proc.on("error", () => resolve(null));
+    proc.on("close", () => {
+      const m = err.match(/Duration: (\d+):(\d+):(\d+(?:\.\d+)?)/);
+      resolve(m ? Number(m[1]) * 3600 + Number(m[2]) * 60 + Number(m[3]) : null);
+    });
+  });
+}
+
 const SILENCE = ["-f", "lavfi", "-i", "anullsrc=channel_layout=stereo:sample_rate=48000"];
 const AAC = ["-c:a", "aac", "-ar", "48000", "-ac", "2", "-b:a", "160k"];
 
@@ -72,12 +87,16 @@ export const SIZE_916: Size = { w: 1080, h: 1920 };
 
 /** 어떤 입력이든 동일 규격(해상도·fps·무음 제거)의 mp4 조각으로 정규화. 길이 초과분은 잘라낸다 */
 export async function normalizeClip(input: string, output: string, size: Size, seconds: number, opts: { fadeIn?: boolean; keepAudio?: boolean } = {}) {
-  const vf = [`scale=${size.w}:${size.h}:force_original_aspect_ratio=increase`, `crop=${size.w}:${size.h}`, "fps=30", "setsar=1", "format=yuv420p", ...(opts.fadeIn ? ["fade=t=in:st=0:d=0.4"] : [])].join(",");
+  // 클립이 목표보다 짧으면(Veo 8초 → 10초 컷) 최대 1.4배까지 슬로모션으로 늘려 빈 구간을 없앤다
+  const actual = await probeDuration(input);
+  const stretch = actual && actual > 0.5 && actual < seconds - 0.05 ? Math.min(1.4, seconds / actual) : 1;
+  const vf = [`scale=${size.w}:${size.h}:force_original_aspect_ratio=increase`, `crop=${size.w}:${size.h}`, ...(stretch > 1 ? [`setpts=${stretch.toFixed(4)}*PTS`] : []), "fps=30", "setsar=1", "format=yuv420p", ...(opts.fadeIn ? ["fade=t=in:st=0:d=0.4"] : [])].join(",");
   // 모든 조각에 오디오 트랙(원본 또는 무음)을 넣어 concat·믹스 규격을 맞춘다
   const keep = opts.keepAudio && (await hasAudioStream(input));
   const audioIn = keep ? [] : SILENCE;
   const map = keep ? ["-map", "0:v:0", "-map", "0:a:0"] : ["-map", "0:v:0", "-map", "1:a:0"];
-  await run(["-i", input, ...audioIn, "-t", String(seconds), ...map, "-vf", vf, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", ...AAC, "-movflags", "+faststart", output]);
+  const af = keep && stretch > 1 ? ["-af", `atempo=${(1 / stretch).toFixed(4)}`] : [];
+  await run(["-i", input, ...audioIn, "-t", String(seconds), ...map, "-vf", vf, ...af, "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", ...AAC, "-movflags", "+faststart", output]);
 }
 
 /** 정지 이미지 → N초 클립 (살짝 줌인하는 켄번스 효과) */

@@ -1,5 +1,6 @@
 "use client";
 import { TTS_VOICES, type TtsVoice } from "@/lib/tts-voices";
+import { VIDEO_MODELS, type VideoModel } from "@/lib/video-models";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { IMAGE_TYPES, resizeImage, uploadToStorage } from "@/lib/client-upload";
@@ -246,6 +247,7 @@ function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; bus
   const [prompt, setPrompt] = useState(o.plan?.prompt_en ?? "");
   const [quality, setQuality] = useState<"standard" | "pro">("standard");
   const [sound, setSound] = useState(false);
+  const [model, setModel] = useState<VideoModel>("kling");
   const failed = Boolean(o.prompt_error || !o.plan?.prompt_en);
   return (
     <div className="card space-y-4">
@@ -280,6 +282,13 @@ function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; bus
           </div>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="space-y-1.5 text-sm">
+              <div className="flex flex-wrap gap-2">
+                {(Object.keys(VIDEO_MODELS) as VideoModel[]).map((m) => (
+                  <button key={m} type="button" onClick={() => setModel(m)} className={`rounded-lg border px-3 py-1.5 text-left text-xs ${model === m ? "border-brand bg-brand-soft" : "border-line"}`} title={VIDEO_MODELS[m].priceNote}>
+                    <span className="font-medium">{VIDEO_MODELS[m].label}</span> <span className="text-muted">{VIDEO_MODELS[m].desc}</span>
+                  </button>
+                ))}
+              </div>
               <label className="flex items-center gap-2">
                 <input type="checkbox" checked={quality === "pro"} onChange={(e) => setQuality(e.target.checked ? "pro" : "standard")} /> 고품질 1080p (Pro, 우수작 재생성용)
               </label>
@@ -288,7 +297,7 @@ function PromptReview({ r, resume, busy }: { r: JobResult; resume: ResumeFn; bus
               </label>
               <p className="hint">한국어 음성은 Kling이 지원하지 않아요. 대사·자막은 ⑤ 단계의 <b>한국어 내레이션</b>으로 넣을 수 있습니다.</p>
             </div>
-            <button type="button" className="btn-primary" disabled={busy} onClick={() => resume("start", { videoPrompt: prompt, dialogueKo: dialogueKo || "", quality, sound })}>④ Kling 3.0으로 영상 만들기 (영상 1회) →</button>
+            <button type="button" className="btn-primary" disabled={busy} onClick={() => resume("start", { videoPrompt: prompt, dialogueKo: dialogueKo || "", quality, sound, model })}>④ {VIDEO_MODELS[model].label}으로 영상 만들기 (영상 1회) →</button>
           </div>
         </>
       )}

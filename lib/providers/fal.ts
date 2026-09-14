@@ -3,6 +3,8 @@ import { createFalClient, type FalClient } from "@fal-ai/client";
 import { ProviderHttpError, withRetry } from "./retry";
 import { requireSecret } from "@/lib/secrets";
 import { recordUsage } from "@/lib/usage";
+import { DEFAULT_VIDEO_MODEL, type VideoModel } from "@/lib/video-models";
+export { VIDEO_MODELS, DEFAULT_VIDEO_MODEL, isVideoModel, type VideoModel } from "@/lib/video-models";
 
 /**
  * fal.ai — Kling 3.0 이미지→영상 (SPEC D1·D2)
@@ -28,8 +30,27 @@ export const FAL_I2V_AUDIO_ENDPOINT_PRO = process.env.FAL_I2V_AUDIO_ENDPOINT_PRO
 
 export const isTurboEndpoint = (endpoint: string) => endpoint.includes("/turbo/");
 
+/** Google Veo 3.1 Fast — 텍스트→영상 / 이미지→영상. duration "4s"|"6s"|"8s", resolution 720p|1080p, generate_audio, negative_prompt, image_url */
+export const FAL_VEO_T2V = process.env.FAL_VEO_T2V ?? "fal-ai/veo3.1/fast";
+export const FAL_VEO_I2V = process.env.FAL_VEO_I2V ?? "fal-ai/veo3.1/fast/image-to-video";
+export const isVeoEndpoint = (endpoint: string) => endpoint.includes("veo");
+
+/** 모델·입력 조합 → fal 엔드포인트 */
+export function resolveVideoEndpoint(opts: { model?: VideoModel; imageUrl?: string; audio?: boolean; pro?: boolean }): string {
+  const model = opts.model ?? DEFAULT_VIDEO_MODEL;
+  if (model === "veo") return opts.imageUrl ? FAL_VEO_I2V : FAL_VEO_T2V;
+  if (opts.imageUrl) return opts.audio ? (opts.pro ? FAL_I2V_AUDIO_ENDPOINT_PRO : FAL_I2V_AUDIO_ENDPOINT_DEFAULT) : opts.pro ? FAL_VIDEO_ENDPOINT_PRO : FAL_VIDEO_ENDPOINT_DEFAULT;
+  return opts.pro ? FAL_T2V_ENDPOINT_PRO : FAL_T2V_ENDPOINT_DEFAULT;
+}
+
+/** Veo는 4·6·8초만 된다 — 요청 길이 이상 중 가장 짧은 것, 넘치면 8초(합성 때 살짝 느리게 늘린다) */
+export function veoSeconds(requested: number): 4 | 6 | 8 {
+  return requested <= 4 ? 4 : requested <= 6 ? 6 : 8;
+}
+
 /** 초당 단가(USD) — fal 가격표(2026-09). 변동 가능, 관리자 비용 표시용 */
 export function klingCostUsd(endpoint: string, seconds: number, audio = false): number {
+  if (isVeoEndpoint(endpoint)) return Math.round((audio ? 0.15 : 0.1) * seconds * 10000) / 10000;
   const pro = endpoint.includes("/pro/");
   const perSec = isTurboEndpoint(endpoint) ? (pro ? 0.14 : 0.112) : pro ? (audio ? 0.196 : 0.14) : audio ? 0.14 : 0.084; // v3 standard i2v(오디오)는 실제 청구 $0.14/초 (2026-09 fal 사용량 화면 확인)
   return Math.round(perSec * seconds * 10000) / 10000;
@@ -56,7 +77,12 @@ export type SubmitVideoInput = {
   aspectRatio?: KlingAspect;
   generateAudio?: boolean;
   negativePrompt?: string;
+  /** 명시하면 model·pro 무시 */
   endpoint?: string;
+  /** 영상 모델 (기본 kling) */
+  model?: VideoModel;
+  /** Kling: pro 엔드포인트 · Veo: 1080p */
+  pro?: boolean;
   webhookUrl?: string;
 };
 
@@ -94,10 +120,22 @@ export function koReasonFor(e: unknown): string {
   return `영상 생성에 실패했어요. (${m.slice(0, 160)})`;
 }
 
-export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId: string; endpoint: string }> {
-  const endpoint = input.endpoint ?? (input.imageUrl ? FAL_VIDEO_ENDPOINT_DEFAULT : FAL_T2V_ENDPOINT_DEFAULT);
-  const duration = String(Math.max(3, Math.min(15, Math.round(input.duration))));
-  const body: Record<string, unknown> = { prompt: input.prompt.slice(0, 2500), duration };
+export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId: string; endpoint: string; seconds: number }> {
+  const endpoint = input.endpoint ?? resolveVideoEndpoint({ model: input.model, imageUrl: input.imageUrl, audio: input.generateAudio, pro: input.pro });
+  const body: Record<string, unknown> = { prompt: input.prompt.slice(0, 2500) };
+  let seconds = Math.max(3, Math.min(15, Math.round(input.duration)));
+  if (isVeoEndpoint(endpoint)) {
+    seconds = veoSeconds(input.duration);
+    body.duration = `${seconds}s`;
+    body.aspect_ratio = input.aspectRatio === "9:16" ? "9:16" : "16:9";
+    body.resolution = input.pro ? "1080p" : "720p";
+    body.generate_audio = input.generateAudio ?? false;
+    body.auto_fix = true;
+    if (input.negativePrompt) body.negative_prompt = input.negativePrompt;
+    if (input.imageUrl) body.image_url = input.imageUrl;
+  } else {
+  const duration = String(seconds);
+  body.duration = duration;
   if (input.imageUrl) {
     if (isTurboEndpoint(endpoint)) body.image_url = input.imageUrl; // turbo: 오디오·부정 조건 없음
     else {
@@ -109,6 +147,7 @@ export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId:
     body.aspect_ratio = input.aspectRatio ?? "16:9";
     body.generate_audio = input.generateAudio ?? false;
     if (input.negativePrompt) body.negative_prompt = input.negativePrompt;
+  }
   }
   const requestId = await withRetry(
     async () => {
@@ -124,9 +163,8 @@ export async function submitVideo(input: SubmitVideoInput): Promise<{ requestId:
     },
     { tries: 5, baseMs: 1000, maxMs: 16000, label: "fal-submit", retryIf: (e) => !isContentRejection(e) && (e instanceof ProviderHttpError ? [408, 409, 425, 429, 500, 502, 503, 504].includes(e.status) : true) },
   );
-  const secs = Number(duration);
-  await recordUsage({ provider: "fal", product: endpoint, unit: "seconds", quantity: secs, costUsd: klingCostUsd(endpoint, secs, Boolean(body.generate_audio)), meta: { request_id: requestId, audio: Boolean(body.generate_audio), i2v: Boolean(input.imageUrl) } });
-  return { requestId, endpoint };
+  await recordUsage({ provider: "fal", product: endpoint, unit: "seconds", quantity: seconds, costUsd: klingCostUsd(endpoint, seconds, Boolean(body.generate_audio)), meta: { request_id: requestId, audio: Boolean(body.generate_audio), i2v: Boolean(input.imageUrl), model: input.model ?? "kling" } });
+  return { requestId, endpoint, seconds };
 }
 
 export type VideoStatus = { status: "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED"; queuePosition?: number };

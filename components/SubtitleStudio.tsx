@@ -2,7 +2,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Cue } from "@/lib/video/subtitles";
 import { burnSubtitles, DEFAULT_STYLE, downloadFileName, loadFFmpeg, type SubtitleStyle } from "@/lib/video/wasm-subtitles";
-import { fontOf, SUBTITLE_FONTS, SUBTITLE_THEMES, themeOf, type SubtitleFontId, type SubtitleThemeId } from "@/lib/video/subtitle-style";
+import { SUBTITLE_FONTS, SUBTITLE_THEMES, type SubtitleFontId, type SubtitleThemeId } from "@/lib/video/subtitle-style";
+import { FontFaces, StylePreview } from "@/components/SubtitleStylePicker";
 
 /** 실제로 화면에 나올 수 있는 자막: 문구가 있고 끝이 시작보다 큰 것 */
 export const validCues = (cues: Cue[]) => cues.filter((c) => c.text.trim() && c.end > c.start);
@@ -216,42 +217,3 @@ export function SubtitleStudio({ videoUrl, cues, onCuesChange, duration, ratio, 
   );
 }
 
-/** 번들 폰트를 CSS로 등록 (미리보기용). 선택된 폰트만 브라우저가 내려받는다 */
-function FontFaces() {
-  const css = Object.values(SUBTITLE_FONTS)
-    .map((f) => `@font-face{font-family:"sub-${f.id}";src:url("/fonts/${f.file}");font-display:swap;}`)
-    .join("\n");
-  return <style dangerouslySetInnerHTML={{ __html: css }} />;
-}
-
-/** 실제 합성과 비슷한 비율로 자막 모양을 미리 보여준다 (1080p 기준 글자 크기를 축소) */
-function StylePreview({ style, text, ratio }: { style: SubtitleStyle; text: string; ratio: "16:9" | "9:16" }) {
-  const theme = themeOf(style.themeId);
-  const font = fontOf(style.fontId);
-  const previewH = 180;
-  const shownH = ratio === "9:16" ? 1920 * 0.35 : 1080 * 0.5; // 미리보기에 보이는 영상 높이(px, 원본 기준)
-  const px = Math.max(10, Math.round(style.fontSize * (previewH / shownH)));
-  const hexA = (hex: string, a: number) => `${hex}${Math.round(a * 255).toString(16).padStart(2, "0")}`;
-  const textStyle: React.CSSProperties = {
-    fontFamily: `"sub-${font.id}", "Noto Sans KR", sans-serif`,
-    fontWeight: font.bold ? 700 : 400,
-    fontSize: px,
-    lineHeight: 1.3,
-    color: theme.text,
-    padding: theme.box ? `${Math.round(px * 0.15)}px ${Math.round(px * 0.4)}px` : 0,
-    background: theme.box ? hexA(theme.box.color, theme.box.alpha) : "transparent",
-    borderRadius: theme.box ? 4 : 0,
-    WebkitTextStroke: theme.box ? undefined : `${Math.max(1, Math.round(px * theme.outline.width * 0.6))}px ${theme.outline.color}`,
-    paintOrder: "stroke fill",
-    textShadow: theme.box ? undefined : `${theme.shadow}px ${theme.shadow}px 2px rgba(0,0,0,.6)`,
-    whiteSpace: "nowrap",
-  };
-  return (
-    <div className="relative overflow-hidden rounded-lg border border-line bg-gradient-to-b from-sky-200 via-amber-100 to-emerald-700" style={{ height: previewH }}>
-      <div className={`absolute left-0 right-0 flex justify-center px-4 ${style.position === "top" ? "top-4" : "bottom-4"}`}>
-        <span style={textStyle}>{text}</span>
-      </div>
-      <span className="absolute right-2 top-2 rounded bg-black/40 px-1.5 py-0.5 text-[10px] text-white">미리보기</span>
-    </div>
-  );
-}

@@ -4,7 +4,7 @@ import type { Pipeline, JobContext } from "@/lib/jobs";
 import { ResumeInputError } from "@/lib/jobs";
 import { generateJSON, type ImageInput } from "@/lib/providers/anthropic";
 import { editImage, IMAGE_SIZES } from "@/lib/providers/openai-image";
-import { FAL_I2V_AUDIO_ENDPOINT_DEFAULT, FAL_I2V_AUDIO_ENDPOINT_PRO, FAL_VIDEO_ENDPOINT_DEFAULT, FAL_VIDEO_ENDPOINT_PRO, getVideoResult, getVideoStatus, isContentRejection, klingCostUsd, koReasonFor, submitVideo } from "@/lib/providers/fal";
+import { FAL_VIDEO_ENDPOINT_DEFAULT, getVideoResult, getVideoStatus, isContentRejection, isVideoModel, klingCostUsd, koReasonFor, submitVideo, type VideoModel } from "@/lib/providers/fal";
 import { isTtsVoice, synthesizeSpeech, ttsCostUsd } from "@/lib/providers/openai-tts";
 import { adminClient } from "@/lib/supabase/admin";
 import { canStartVideoTasks, countAheadInQueue, estimateWaitSeconds } from "@/lib/concurrency";
@@ -53,7 +53,9 @@ export type PracticeOut = {
   prompt_error?: string | null;
   video_prompt?: string; // Kling에 보낼 최종 영어 프롬프트(사용자 수정 반영)
   video_endpoint?: string;
-  /** 현장음(Kling 네이티브 오디오) 켬 — 오디오 지원 엔드포인트 사용 */
+  video_model?: VideoModel;
+  video_pro?: boolean;
+  /** 현장음(네이티브 오디오) 켬 */
   video_sound?: boolean;
   video_tries?: number;
   /** 한국어 내레이션(자막 읽어주기) mp3 자산 */
@@ -184,17 +186,16 @@ export const practicePipeline: Pipeline = {
       await consumePracticeCredit(userId, "video");
       try {
         const imageUrl = await outputsSignedUrl(o.photo_asset_id, 60 * 60 * 6);
-        const endpoint = o.video_endpoint ?? FAL_VIDEO_ENDPOINT_DEFAULT;
         const base = (await getSecret("APP_BASE_URL")) ?? process.env.NEXT_PUBLIC_SITE_URL;
         const whSecret = await getSecret("FAL_WEBHOOK_SECRET");
         const webhookUrl = base && whSecret && !/localhost|127\.0\.0\.1/.test(base) ? `${base.replace(/\/$/, "")}/api/webhooks/fal?token=${encodeURIComponent(whSecret)}` : undefined;
         // 현장음을 켜면 Kling이 대사를 영어로 더빙하지 않도록 말소리를 막는다 (한국어 음성은 내레이션으로)
         const finalPrompt = o.video_sound ? `${prompt} Natural ambient sound and light sound effects only, no speech, no singing.`.slice(0, 2500) : prompt;
-        const { requestId } = await submitVideo({ imageUrl, prompt: finalPrompt, duration, endpoint, webhookUrl, generateAudio: Boolean(o.video_sound) });
-        await addCost(ctx, klingCostUsd(endpoint, duration, Boolean(o.video_sound)));
+        const { requestId, endpoint, seconds } = await submitVideo({ imageUrl, prompt: finalPrompt, duration, model: o.video_model, pro: o.video_pro, webhookUrl, generateAudio: Boolean(o.video_sound) });
+        await addCost(ctx, klingCostUsd(endpoint, seconds, Boolean(o.video_sound)));
         await ctx.update({
           provider_task_ids: { clip: requestId },
-          output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), fal_request_ids: [requestId], queue_position: null, eta_seconds: null, notice: "Kling에 제출했어요. 5초 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요." },
+          output: { video_endpoint: endpoint, video_tries: (o.video_tries ?? 0) + 1, credits_used: bump(o, "video"), fal_request_ids: [requestId], queue_position: null, eta_seconds: null, notice: `${o.video_model === "veo" ? "Veo" : "Kling"}에 제출했어요. 클립은 보통 1.5~3분 걸려요. 기다리는 동안 자막을 미리 적어 두세요.` },
         });
         return { next: "video:wait" };
       } catch (e) {
@@ -305,8 +306,8 @@ export const practicePipeline: Pipeline = {
         const plan: PracticePlan = { ...o.plan, dialogue_ko: dialogue };
         const pro = data.quality === "pro";
         const sound = data.sound === true;
-        const endpoint = sound ? (pro ? FAL_I2V_AUDIO_ENDPOINT_PRO : FAL_I2V_AUDIO_ENDPOINT_DEFAULT) : pro ? FAL_VIDEO_ENDPOINT_PRO : FAL_VIDEO_ENDPOINT_DEFAULT;
-        await ctx.update({ output: { plan, video_prompt: assembleKlingPrompt({ prompt_en: vp.prompt, dialogue_ko: dialogue, negative: plan.negative }), video_endpoint: endpoint, video_sound: sound, cues: o.cues?.length ? o.cues : defaultCues(dialogue, duration) } });
+        const model: VideoModel = isVideoModel(data.model) ? data.model : "kling";
+        await ctx.update({ output: { plan, video_prompt: assembleKlingPrompt({ prompt_en: vp.prompt, dialogue_ko: dialogue, negative: plan.negative }), video_model: model, video_pro: pro, video_sound: sound, cues: o.cues?.length ? o.cues : defaultCues(dialogue, duration) } });
         return { next: "video:start" };
       }
     }
