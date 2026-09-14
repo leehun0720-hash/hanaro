@@ -31,7 +31,7 @@ export const isTurboEndpoint = (endpoint: string) => endpoint.includes("/turbo/"
 /** 초당 단가(USD) — fal 가격표(2026-09). 변동 가능, 관리자 비용 표시용 */
 export function klingCostUsd(endpoint: string, seconds: number, audio = false): number {
   const pro = endpoint.includes("/pro/");
-  const perSec = isTurboEndpoint(endpoint) ? (pro ? 0.14 : 0.112) : pro ? (audio ? 0.168 : 0.112) : audio ? 0.126 : 0.084;
+  const perSec = isTurboEndpoint(endpoint) ? (pro ? 0.14 : 0.112) : pro ? (audio ? 0.196 : 0.14) : audio ? 0.14 : 0.084; // v3 standard i2v(오디오)는 실제 청구 $0.14/초 (2026-09 fal 사용량 화면 확인)
   return Math.round(perSec * seconds * 10000) / 10000;
 }
 

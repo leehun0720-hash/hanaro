@@ -207,7 +207,7 @@ export default async function AdminUsage({ searchParams }: PageProps<"/admin/usa
         <ul className="mt-2 grid gap-1 text-xs text-muted sm:grid-cols-2">
           <li>Claude 입력 ${PRICES.claudeInPerM}/M · 출력 ${PRICES.claudeOutPerM}/M · 캐시 읽기 ${PRICES.claudeCacheReadPerM}/M (PRICE_CLAUDE_IN_PER_M …)</li>
           <li>GPT Image 텍스트 입력 ${PRICES.imageTextInPerM}/M · 이미지 입력 ${PRICES.imageImageInPerM}/M · 출력 ${PRICES.imageOutPerM}/M, 토큰 정보 없으면 장당 medium ${PRICES.imagePerCall.medium} / high ${PRICES.imagePerCall.high}</li>
-          <li>Kling turbo standard $0.112/초 · turbo pro $0.14/초 · standard(오디오) $0.126/초 · pro(오디오) $0.168/초</li>
+          <li>Kling turbo standard $0.112/초 · turbo pro $0.14/초 · standard(오디오) $0.14/초 · pro(오디오) $0.196/초(추정)</li>
           <li>OpenAI TTS ${PRICES.ttsPerMChars}/100만 자 (PRICE_TTS_PER_M_CHARS) · ElevenLabs Music 곡당 ${PRICES.musicPerTrack} (PRICE_MUSIC_PER_TRACK)</li>
           <li>환율 KRW_PER_USD={PRICES.krwPerUsd}</li>
         </ul>
