@@ -27,6 +27,13 @@ export default async function AdminKeysPage({ searchParams }: PageProps<"/admin/
           <br />Vercel → Settings → Environment Variables에서 <code>SUPABASE_SERVICE_ROLE_KEY</code> 값을 Supabase API Keys 화면의 <b>Secret key(sb_secret_…)</b>로 다시 입력하고 Redeploy 하세요. 값 앞뒤에 공백·줄바꿈이 없어야 합니다.
         </Alert>
       )}
+      {rows.some((r) => r.source === "broken") && (
+        <Alert kind="error">
+          <b>일부 키를 읽을 수 없습니다.</b> 서버의 암호화 키(서비스 키)가 바뀌어 이전에 저장한 값을 복호화하지 못합니다. 해당 항목에 키를 <b>다시 입력</b>하세요.
+          앞으로 이런 일이 없도록 Vercel 환경변수에 <code>APP_SECRETS_KEY</code>(아무 긴 문자열)를 추가해 두면 Supabase 키가 바뀌어도 저장값이 유지됩니다.
+        </Alert>
+      )}
+      {!process.env.APP_SECRETS_KEY && <Alert kind="warn">권장: Vercel 환경변수에 <code>APP_SECRETS_KEY</code>를 추가하세요. 지금은 Supabase 서비스 키에서 암호화 키를 파생하므로, 서비스 키가 바뀌면 저장한 API 키를 다시 입력해야 합니다.</Alert>}
       <Alert kind="warn">키는 강사(관리자)만 볼 수 있는 이 화면에서만 다루세요. 대화·메일·문서에 키를 붙여 넣지 마세요.</Alert>
 
       {groups.map((g) => (

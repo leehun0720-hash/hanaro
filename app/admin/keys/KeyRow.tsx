@@ -60,7 +60,11 @@ export function KeyRow({ row }: { row: SecretStatus }) {
     }
   }
 
-  const badge = row.source === "db" ? <span className="badge bg-brand-soft text-brand-deep">관리자 입력</span> : row.source === "env" ? <span className="badge bg-gold-soft text-[#7a5d00]">환경변수</span> : <span className="badge bg-danger-soft text-danger">미설정</span>;
+  const badge =
+    row.source === "db" ? <span className="badge bg-brand-soft text-brand-deep">관리자 입력</span>
+    : row.source === "broken" ? <span className="badge bg-danger-soft text-danger">다시 입력 필요 (암호화 키 변경)</span>
+    : row.source === "env" ? <span className="badge bg-gold-soft text-[#7a5d00]">환경변수</span>
+    : <span className="badge bg-danger-soft text-danger">미설정</span>;
 
   return (
     <div className="space-y-2 px-5 py-4">
@@ -71,7 +75,7 @@ export function KeyRow({ row }: { row: SecretStatus }) {
         </div>
         <div className="flex items-center gap-2">
           {row.test && <button type="button" onClick={test} disabled={busy !== null || row.source === "none"} className="btn-secondary px-2 py-1 text-xs">{busy === "test" ? "테스트 중…" : "연결 테스트"}</button>}
-          {row.source === "db" && <button type="button" onClick={remove} disabled={busy !== null} className="btn-danger px-2 py-1 text-xs">삭제</button>}
+          {(row.source === "db" || row.source === "broken") && <button type="button" onClick={remove} disabled={busy !== null} className="btn-danger px-2 py-1 text-xs">삭제</button>}
         </div>
       </div>
       <form

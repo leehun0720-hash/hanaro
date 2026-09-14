@@ -24,10 +24,30 @@ export const isSecretName = (n: string): n is SecretName => NAMES.has(n);
 const CACHE_MS = 60_000;
 const cache = new Map<string, { value: string | null; at: number }>();
 
+/**
+ * 암호화 키 우선순위: APP_SECRETS_KEY(전용, 권장) → SUPABASE_SERVICE_ROLE_KEY 파생.
+ * 복호화는 두 키를 차례로 시도하므로, 전용 키를 나중에 추가해도 기존 저장값이 깨지지 않는다.
+ * (서비스 키가 바뀌면 — 프로젝트 이전·키 회전 — 파생 키로 저장된 값은 못 읽으므로 APP_SECRETS_KEY 설정을 권장)
+ */
+function candidateKeys(): Buffer[] {
+  const keys: Buffer[] = [];
+  if (process.env.APP_SECRETS_KEY) keys.push(crypto.createHash("sha256").update(`hanaro-secrets:${process.env.APP_SECRETS_KEY}`).digest());
+  if (process.env.SUPABASE_SERVICE_ROLE_KEY) keys.push(crypto.createHash("sha256").update(`hanaro-secrets:${process.env.SUPABASE_SERVICE_ROLE_KEY}`).digest());
+  return keys;
+}
 function derivedKey(): Buffer {
-  const base = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!base) throw new Error("SUPABASE_SERVICE_ROLE_KEY가 없어 키를 암호화할 수 없습니다.");
-  return crypto.createHash("sha256").update(`hanaro-secrets:${base}`).digest();
+  const k = candidateKeys()[0];
+  if (!k) throw new Error("APP_SECRETS_KEY 또는 SUPABASE_SERVICE_ROLE_KEY가 없어 키를 암호화할 수 없습니다.");
+  return k;
+}
+/** 저장된 암호문을 후보 키로 차례로 복호화. 모두 실패하면 null */
+export function tryDecrypt(payload: string): string | null {
+  for (const k of candidateKeys()) {
+    try {
+      return decryptSecret(payload, k);
+    } catch {}
+  }
+  return null;
 }
 
 export function encryptSecret(plain: string, key = derivedKey()): string {
@@ -56,7 +76,10 @@ export async function getSecret(name: SecretName): Promise<string | null> {
   let value: string | null = null;
   try {
     const { data } = await adminClient().from("app_secrets").select("ciphertext").eq("name", name).maybeSingle();
-    if (data?.ciphertext) value = decryptSecret(data.ciphertext);
+    if (data?.ciphertext) {
+      value = tryDecrypt(data.ciphertext);
+      if (value === null) console.warn(`[secrets] ${name} 복호화 실패 — 암호화 키가 바뀌었습니다. 관리자 화면에서 다시 입력하세요.`);
+    }
   } catch (e) {
     console.warn(`[secrets] ${name} 읽기 실패, 환경변수 사용:`, e instanceof Error ? e.message : e);
   }
@@ -85,22 +108,23 @@ export async function deleteSecret(name: SecretName): Promise<void> {
   cache.delete(name);
 }
 
-export type SecretStatus = { name: SecretName; label: string; group: string; test: string | null; isSecret: boolean; source: "db" | "env" | "none"; hint: string | null; updated_at: string | null };
+export type SecretStatus = { name: SecretName; label: string; group: string; test: string | null; isSecret: boolean; source: "db" | "env" | "none" | "broken"; hint: string | null; updated_at: string | null };
 
 /** 관리자 화면용 상태 목록 (값은 노출하지 않음) */
 export async function listSecretStatus(): Promise<SecretStatus[]> {
-  const { data } = await adminClient().from("app_secrets").select("name, hint, updated_at");
-  const rows = new Map((data ?? []).map((r) => [r.name as string, r as { hint: string | null; updated_at: string }]));
+  const { data } = await adminClient().from("app_secrets").select("name, hint, updated_at, ciphertext");
+  const rows = new Map((data ?? []).map((r) => [r.name as string, r as { hint: string | null; updated_at: string; ciphertext: string }]));
   return SECRET_DEFS.map((d) => {
     const row = rows.get(d.name);
     const env = process.env[d.name];
+    const broken = row ? tryDecrypt(row.ciphertext) === null : false;
     return {
       name: d.name,
       label: d.label,
       group: d.group,
       test: d.test,
       isSecret: (d as { secret?: boolean }).secret !== false,
-      source: row ? "db" : env ? "env" : "none",
+      source: row ? (broken ? "broken" : "db") : env ? "env" : "none",
       hint: row?.hint ?? (env ? maskSecret(env) : null),
       updated_at: row?.updated_at ?? null,
     };
