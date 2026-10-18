@@ -34,7 +34,7 @@ export default async function AdminBranding({ searchParams }: PageProps<"/admin/
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <div><label className="label">사이트 이름</label><input name="name" defaultValue={b.name} maxLength={40} className="input" required /><p className="hint">예) runiq space</p></div>
+          <div><label className="label">사이트 이름</label><input name="name" defaultValue={b.name} maxLength={40} className="input" required /><p className="hint">예) 하나로ai</p></div>
           <div><label className="label">부제 (선택)</label><input name="byline" defaultValue={b.byline} maxLength={40} className="input" /><p className="hint">이름 옆에 작게 표시. 예) by tenai</p></div>
         </div>
         <div><label className="label">소개 문구 (검색 결과·공유 카드 설명)</label><textarea name="tagline" defaultValue={b.tagline} maxLength={200} className="input min-h-20" required /></div>

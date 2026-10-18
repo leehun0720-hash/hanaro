@@ -6,7 +6,7 @@ import { DEFAULT_THEME, isThemeId, type ThemeId } from "@/lib/themes";
 
 /** 관리자가 바꿀 수 있는 사이트 이름·로고 (site_settings 1행). 마이그레이션 0007 */
 export type Branding = {
-  name: string; // 예) runiq space
+  name: string; // 예) 하나로ai
   byline: string; // 예) by tenai
   tagline: string; // 메타 설명·소개 문구
   owner: string; // 저작권·라이선스 보유자 (푸터 ©)

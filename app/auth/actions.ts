@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/server";
  * 돌아올 주소는 반드시 "지금 접속한 주소"여야 한다.
  * OAuth(PKCE)·매직링크는 시작 시 브라우저 쿠키에 검증값을 두고 콜백에서 대조하므로,
  * 환경변수에 고정된 다른 도메인으로 돌아오면 쿠키를 못 찾아 "인증 링크가 만료" 오류가 난다.
- * 여러 도메인(hanaro-tenai · hanaro-eta · www.runiq.space)을 함께 쓰는 배포에서 특히 중요.
+ * 여러 도메인(hanaro.tenai.kr · hanaro-tenai.vercel.app 등)을 함께 쓰는 배포에서 특히 중요.
  */
 async function site(): Promise<string> {
   try {
